@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* utilitaires (optionnels) */
+:root {
+  --pf-blue-light: #9ac8eb;
+  --pf-blue: #5784ba;
+  --pf-pink: #f4cfdf;
+  --pf-blue-soft: #b6d8f2;
+  --pf-yellow: #f7f6cf;
+}
