@@ -6,7 +6,15 @@ import rateLimit from "express-rate-limit";
 import { body, validationResult } from "express-validator";
 import nodemailer from "nodemailer";
 import mysql from "mysql2/promise";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
+import createDocsRouter from "./src/routes/docs.js";
+
+// --------------------------------------------------
+// APP INIT
+// --------------------------------------------------
 const app = express();
 
 // ---------- CORS ----------
@@ -24,6 +32,21 @@ app.use(
 // ---------- Body parser ----------
 app.use(express.json());
 
+// ---------- Chemin PDF robuste ----------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// public/pdfs à partir de la localisation réelle de server.js
+const PDF_DIR = path.join(__dirname, "public", "pdfs");
+if (!fs.existsSync(PDF_DIR)) {
+  console.error("[PDF] Dossier introuvable:", PDF_DIR);
+} else {
+  console.log("[PDF] Dossier servi depuis:", PDF_DIR);
+}
+
+// ---------- Serveur statique pour les PDF ----------
+app.use("/pdfs", express.static(PDF_DIR));
+
 // ---------- MySQL ----------
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
@@ -34,9 +57,9 @@ const pool = mysql.createPool({
   connectionLimit: 5,
 });
 
-// Crée la table si elle n'existe pas (safe pour le dev)
+// Crée les tables si besoin
 async function ensureSchema() {
-  const sql = `
+  await pool.execute(`
     CREATE TABLE IF NOT EXISTS messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
       email VARCHAR(190) NOT NULL,
@@ -46,9 +69,22 @@ async function ensureSchema() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       sent_at TIMESTAMP NULL DEFAULT NULL
     )
-  `;
-  await pool.execute(sql);
-  console.log("MySQL OK: table messages prête");
+  `);
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      doc_key VARCHAR(191) UNIQUE NOT NULL,
+      label VARCHAR(255) NOT NULL,
+      tag VARCHAR(50) NOT NULL,
+      sort_order INT DEFAULT 999,
+      file_name VARCHAR(255) NOT NULL,
+      file_size INT DEFAULT 0,
+      mime_type VARCHAR(100) DEFAULT 'application/pdf',
+      public_url VARCHAR(600) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  console.log("MySQL OK: tables messages & documents prêtes");
 }
 
 // ---------- SMTP / Nodemailer ----------
@@ -56,17 +92,15 @@ const useSsl = Number(process.env.SMTP_PORT || 0) === 465;
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 587),
-  secure: useSsl, // true si 465
+  secure: useSsl,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
-
 async function verifySmtp() {
   try {
     await transporter.verify();
     console.log("SMTP OK: prêt à envoyer des emails");
   } catch (err) {
     console.error("SMTP KO:", err?.message || err);
-    // on n'arrête pas le serveur en dev
   }
 }
 
@@ -94,11 +128,15 @@ const validateContact = [
     .custom((v) => (v ? Promise.reject("bot") : true)),
 ];
 
-// Préflight CORS explicite (utile si tu actives des headers custom)
+// Préflight CORS
 app.options("/api/contact", cors());
 
-// ---------- Routes ----------
-app.get("/health", async (_, res) => {
+// --------------------------------------------------
+// ROUTES
+// --------------------------------------------------
+
+// Santé
+app.get("/health", async (_req, res) => {
   try {
     const [rows] = await pool.query("SELECT 1 AS ok");
     res.json({
@@ -115,7 +153,7 @@ app.get("/health", async (_, res) => {
   }
 });
 
-// Endpoint contact (stocke + envoie)
+// Contact
 app.post("/api/contact", limiter, validateContact, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty())
@@ -123,7 +161,6 @@ app.post("/api/contact", limiter, validateContact, async (req, res) => {
 
   const { email, subject, message } = req.body;
 
-  // 1) Sauvegarde
   let insertedId = null;
   try {
     const [result] = await pool.execute(
@@ -136,7 +173,6 @@ app.post("/api/contact", limiter, validateContact, async (req, res) => {
     return res.status(500).json({ ok: false, message: "Erreur serveur (DB)" });
   }
 
-  // 2) Envoi email
   try {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
@@ -146,7 +182,6 @@ app.post("/api/contact", limiter, validateContact, async (req, res) => {
       text: `De: ${email}\n\n${message}`,
     });
 
-    // 3) Marque envoyé
     await pool.execute(
       "UPDATE messages SET email_sent = 1, sent_at = CURRENT_TIMESTAMP WHERE id = ?",
       [insertedId]
@@ -161,18 +196,23 @@ app.post("/api/contact", limiter, validateContact, async (req, res) => {
   }
 });
 
-// 404 par défaut
+// --------- Documents (montage du routeur) ---------
+app.use("/api/docs", createDocsRouter(pool, PDF_DIR));
+
+// 404
 app.use((req, res) =>
   res.status(404).json({ ok: false, message: "Not found" })
 );
 
-// Handler d'erreurs (filet de sécurité)
+// Handler erreurs
 app.use((err, req, res, _next) => {
   console.error("Unhandled error:", err);
   res.status(500).json({ ok: false, message: "Erreur serveur" });
 });
 
-// ---------- Démarrage ----------
+// --------------------------------------------------
+// DEMARRAGE
+// --------------------------------------------------
 const port = Number(process.env.PORT || 4000);
 app.listen(port, async () => {
   try {
