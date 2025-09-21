@@ -141,7 +141,7 @@ app.post("/api/contact", limiter, validateContact, async (req, res) => {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: process.env.CONTACT_TO,
-      subject: `Contact – ${subject}`,
+      subject: `ParentFacile – ${subject}`,
       replyTo: email,
       text: `De: ${email}\n\n${message}`,
     });
