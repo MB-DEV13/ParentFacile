@@ -1,3 +1,4 @@
+// src/pages/Home.jsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -28,7 +29,7 @@ export default function Home() {
         const list = (data?.documents || []).map((d, i) => ({
           ...d,
           tag: normalizeTag(d.tag),
-          _idx: i,
+          _idx: i, // secours pour le tri si pas de date
         }));
         setDocs(list);
       } finally {
@@ -40,17 +41,16 @@ export default function Home() {
     };
   }, []);
 
-  const recent = useMemo(
-    () =>
-      [...docs]
-        .sort((a, b) => {
-          const da = a.updatedAt ? Date.parse(a.updatedAt) : a._idx;
-          const db = b.updatedAt ? Date.parse(b.updatedAt) : b._idx;
-          return db - da;
-        })
-        .slice(0, 3),
-    [docs]
-  );
+  // 3 plus récents (par updatedAt/createdAt si dispo, sinon ordre d'arrivée)
+  const recent = useMemo(() => {
+    const getDate = (d) =>
+      d.updatedAt
+        ? Date.parse(d.updatedAt)
+        : d.createdAt
+        ? Date.parse(d.createdAt)
+        : d._idx;
+    return [...docs].sort((a, b) => getDate(b) - getDate(a)).slice(0, 3);
+  }, [docs]);
 
   const steps = [
     {
@@ -162,7 +162,7 @@ export default function Home() {
                     <div className="font-medium">{step.label}</div>
                   </div>
 
-                  {/* Colonne 2 : pastille alignée à gauche du trait */}
+                  {/* Colonne 2 : pastille */}
                   <div className="relative">
                     <div
                       className="absolute -left-7.5 top-[0.45rem] h-5 w-5 rounded-full ring-4"
@@ -282,15 +282,14 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() =>
-                        doc.file
-                          ? previewDocument(doc.file)
-                          : downloadDocument(doc.id)
+                        previewDocument(doc.public_url, doc.file_name, doc.id)
                       }
                       className="text-sm underline cursor-pointer hover:opacity-80 transition"
                       title="Ouvrir l’aperçu PDF"
                     >
                       Aperçu
                     </button>
+
                     <button
                       type="button"
                       onClick={() => downloadDocument(doc.id)}
