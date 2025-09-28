@@ -51,31 +51,6 @@ export default function InfosIndex() {
               decoding="async"
             />
           </div>
-
-          {/* Raccourcis (pills) */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            <Link
-              to="/informations/grossesse"
-              className="rounded-full border px-3 py-1.5 text-sm hover:bg-white"
-              style={{ borderColor: "#5784BA", color: "#1f2a44" }}
-            >
-              Grossesse
-            </Link>
-            <Link
-              to="/informations/naissance"
-              className="rounded-full border px-3 py-1.5 text-sm hover:bg-white"
-              style={{ borderColor: "#5784BA", color: "#1f2a44" }}
-            >
-              Naissance
-            </Link>
-            <Link
-              to="/informations/1-3-ans"
-              className="rounded-full border px-3 py-1.5 text-sm hover:bg-white"
-              style={{ borderColor: "#5784BA", color: "#1f2a44" }}
-            >
-              1 à 3 ans
-            </Link>
-          </div>
         </div>
 
         {/* Grille des parcours */}
