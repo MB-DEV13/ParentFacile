@@ -2,6 +2,7 @@
 import "dotenv/config.js";
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import { body, validationResult } from "express-validator";
 import nodemailer from "nodemailer";
@@ -9,8 +10,12 @@ import mysql from "mysql2/promise";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-
 import createDocsRouter from "./src/routes/docs.js";
+
+// --- Admin routers ---
+import adminAuthRouter, { ensureSeedAdmin } from "./src/routes/admin.auth.js";
+import adminDocsRouter from "./src/routes/admin.docs.js";
+import createAdminMessagesRouter from "./src/routes/admin.messages.js";
 
 // --------------------------------------------------
 // APP INIT
@@ -22,33 +27,36 @@ const allowed = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+
 app.use(
   cors({
     origin: allowed.length ? allowed : true,
-    credentials: true,
+    credentials: true, // nécessaire pour cookie httpOnly côté front
   })
 );
 
-// ---------- Body parser ----------
+// ---------- Parsers ----------
 app.use(express.json());
+app.use(cookieParser());
 
 // ---------- Chemin PDF robuste ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// public/pdfs à partir de la localisation réelle de server.js
 const PDF_DIR = path.join(__dirname, "public", "pdfs");
+fs.mkdirSync(PDF_DIR, { recursive: true });
+
 if (!fs.existsSync(PDF_DIR)) {
   console.error("[PDF] Dossier introuvable:", PDF_DIR);
 } else {
   console.log("[PDF] Dossier servi depuis:", PDF_DIR);
 }
 
-// ---------- Serveur statique pour les PDF ----------
+// ---------- Statique PDF ----------
 app.use("/pdfs", express.static(PDF_DIR));
 
 // ---------- MySQL ----------
-const pool = mysql.createPool({
+export const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
@@ -56,6 +64,9 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 5,
 });
+
+// Rendre le pool dispo dans les routers via req.app.get("db")
+app.set("db", pool);
 
 // Crée les tables si besoin
 async function ensureSchema() {
@@ -84,7 +95,15 @@ async function ensureSchema() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  console.log("MySQL OK: tables messages & documents prêtes");
+  await pool.execute(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(190) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  console.log("MySQL OK: tables messages, documents, admin_users prêtes");
 }
 
 // ---------- SMTP / Nodemailer ----------
@@ -104,15 +123,16 @@ async function verifySmtp() {
   }
 }
 
-// ---------- Anti-spam ----------
+// ---------- Rate limit global ----------
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
 });
+app.use(limiter);
 
-// ---------- Validation ----------
+// ---------- Validation contact ----------
 const validateContact = [
   body("email").isEmail().withMessage("Email invalide"),
   body("subject")
@@ -132,7 +152,7 @@ const validateContact = [
 app.options("/api/contact", cors());
 
 // --------------------------------------------------
-// ROUTES
+// ROUTES PUBLIQUES
 // --------------------------------------------------
 
 // Santé
@@ -153,8 +173,8 @@ app.get("/health", async (_req, res) => {
   }
 });
 
-// Contact
-app.post("/api/contact", limiter, validateContact, async (req, res) => {
+// Contact (public)
+app.post("/api/contact", validateContact, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty())
     return res.status(400).json({ ok: false, errors: errors.array() });
@@ -196,8 +216,32 @@ app.post("/api/contact", limiter, validateContact, async (req, res) => {
   }
 });
 
-// --------- Documents (montage du routeur) ---------
+// Documents publics (liste + téléchargement via createDocsRouter)
 app.use("/api/docs", createDocsRouter(pool, PDF_DIR));
+
+// --------------------------------------------------
+// ROUTES ADMIN (auth + gestion docs)
+// --------------------------------------------------
+// auth + docs gardent l'injection via req.app.set("db") si tu veux
+app.use(
+  "/api/admin/auth",
+  (req, _res, next) => {
+    req.app.set("db", pool);
+    next();
+  },
+  adminAuthRouter
+);
+app.use(
+  "/api/admin/docs",
+  (req, _res, next) => {
+    req.app.set("db", pool);
+    next();
+  },
+  adminDocsRouter
+);
+
+// ✅ messages via la factory (PAS de wrapper)
+app.use("/api/admin/messages", createAdminMessagesRouter(pool));
 
 // 404
 app.use((req, res) =>
@@ -216,9 +260,10 @@ app.use((err, req, res, _next) => {
 const port = Number(process.env.PORT || 4000);
 app.listen(port, async () => {
   try {
-    await ensureSchema();
+    await ensureSchema(); // crée les tables
+    await ensureSeedAdmin(pool); // ✅ seed admin APRÈS ensureSchema
   } catch (e) {
-    console.error("Erreur ensureSchema:", e?.message || e);
+    console.error("Erreur ensureSchema/seed:", e?.message || e);
   }
   await verifySmtp();
   console.log(`API http://localhost:${port}`);

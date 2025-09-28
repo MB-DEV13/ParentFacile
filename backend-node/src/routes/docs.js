@@ -10,16 +10,17 @@ import archiver from "archiver";
  * - Fichiers lus sur disque: backend-node/public/pdfs/
  *
  * Expose:
- *   GET  /api/docs            -> liste
- *   GET  /api/docs/:id/preview  -> aperçu inline
- *   GET  /api/docs/:id/download -> téléchargement
+ *   GET  /api/docs              -> liste
+ *   GET  /api/docs/:id/preview  -> aperçu inline (nom propre)
+ *   GET  /api/docs/:id/download -> téléchargement (nom propre)
  *   GET  /api/docs/zip          -> zip de tous les PDFs connus en DB
  */
 export default function createDocsRouter(pool, pdfDirAbs) {
   const router = Router();
 
-  // Sécurise le nom de fichier
-  const safe = (name) => path.basename(name || "");
+  const safeFsName = (name) => path.basename(String(name || ""));
+  const cleanForHeader = (name) =>
+    String(name || "document").replace(/[\\/:*?"<>|]/g, "_");
 
   // GET /api/docs -> liste + public_url calculée
   router.get("/", async (_req, res) => {
@@ -40,7 +41,6 @@ export default function createDocsRouter(pool, pdfDirAbs) {
 
       const docs = rows.map((r) => ({
         ...r,
-        // si public_url stockée -> on la renvoie, sinon on calcule l’URL locale
         public_url:
           (r.public_url && r.public_url.trim()) ||
           `/pdfs/${encodeURIComponent(r.file_name)}`,
@@ -53,23 +53,27 @@ export default function createDocsRouter(pool, pdfDirAbs) {
     }
   });
 
-  // GET /api/docs/:id/preview -> inline
+  // GET /api/docs/:id/preview -> inline avec nom propre (label)
   router.get("/:id/preview", async (req, res) => {
     try {
-      const [rows] = await pool.execute(
-        "SELECT file_name, mime_type FROM documents WHERE id = ?",
+      const [[row]] = await pool.execute(
+        "SELECT label, file_name, mime_type FROM documents WHERE id = ?",
         [req.params.id]
       );
-      if (!rows.length)
-        return res.status(404).json({ error: "Document introuvable" });
+      if (!row) return res.status(404).json({ error: "Document introuvable" });
 
-      const fileName = safe(rows[0].file_name);
+      const fileName = safeFsName(row.file_name);
       const filePath = path.join(pdfDirAbs, fileName);
       if (!fs.existsSync(filePath))
         return res.status(404).json({ error: "Fichier manquant" });
 
-      res.setHeader("Content-Type", rows[0].mime_type || "application/pdf");
-      res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+      const downloadName = `${cleanForHeader(row.label)}.pdf`;
+
+      res.setHeader("Content-Type", row.mime_type || "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${downloadName}"`
+      );
       return res.sendFile(filePath);
     } catch (e) {
       console.error("Preview error:", e);
@@ -77,25 +81,26 @@ export default function createDocsRouter(pool, pdfDirAbs) {
     }
   });
 
-  // GET /api/docs/:id/download -> attachment
+  // GET /api/docs/:id/download -> attachment avec nom propre (label)
   router.get("/:id/download", async (req, res) => {
     try {
-      const [rows] = await pool.execute(
-        "SELECT file_name, mime_type FROM documents WHERE id = ?",
+      const [[row]] = await pool.execute(
+        "SELECT label, file_name, mime_type FROM documents WHERE id = ?",
         [req.params.id]
       );
-      if (!rows.length)
-        return res.status(404).json({ error: "Document introuvable" });
+      if (!row) return res.status(404).json({ error: "Document introuvable" });
 
-      const fileName = safe(rows[0].file_name);
+      const fileName = safeFsName(row.file_name);
       const filePath = path.join(pdfDirAbs, fileName);
       if (!fs.existsSync(filePath))
         return res.status(404).json({ error: "Fichier manquant" });
 
-      res.setHeader("Content-Type", rows[0].mime_type || "application/pdf");
+      const downloadName = `${cleanForHeader(row.label)}.pdf`;
+
+      res.setHeader("Content-Type", row.mime_type || "application/pdf");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${fileName}"`
+        `attachment; filename="${downloadName}"`
       );
       return res.sendFile(filePath);
     } catch (e) {
@@ -126,15 +131,12 @@ export default function createDocsRouter(pool, pdfDirAbs) {
       archive.pipe(res);
 
       for (const d of rows) {
-        const fileName = safe(d.file_name);
+        const fileName = safeFsName(d.file_name);
         const filePath = path.join(pdfDirAbs, fileName);
         if (fs.existsSync(filePath)) {
           const order = String(d.sort_order ?? 99).padStart(2, "0");
-          const safeName = `${order} - ${d.label}.pdf`.replace(
-            /[\\/:*?"<>|]/g,
-            "_"
-          );
-          archive.file(filePath, { name: safeName });
+          const nice = `${order} - ${cleanForHeader(d.label)}.pdf`;
+          archive.file(filePath, { name: nice });
         }
       }
 
