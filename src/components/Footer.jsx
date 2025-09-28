@@ -40,8 +40,18 @@ export default function Footer() {
               </a>
             </li>
             <li>
-              <a href="#" className="hover:underline">
+              <a href="/cgu" className="hover:underline">
                 Conditions générales
+              </a>
+            </li>
+            <li>
+              <a href="/mentions-legales" className="hover:underline">
+                Mentions Legales
+              </a>
+            </li>
+            <li>
+              <a href="/confidentialite" className="hover:underline">
+                Confidentialite
               </a>
             </li>
           </ul>
