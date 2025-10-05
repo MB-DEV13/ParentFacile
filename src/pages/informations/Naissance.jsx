@@ -1,62 +1,91 @@
+// src/pages/informations/Naissance.jsx
 import { Link } from "react-router-dom";
 
 export default function Naissance() {
   const steps = [
+    // 1 — Congé paternité / 2e parent en premier
+    {
+      title: "Congé paternité / 2e parent",
+      detail:
+        "À poser dans les 6 mois suivant la naissance (25 jours, 32 en cas de naissances multiples). L’employeur transmet les attestations de salaire à la CPAM pour les indemnités.",
+      pro: "Employeur + CPAM",
+      // 👉 Demande : uniquement un bouton vers le modèle présent dans ta page Documents
+      doc: {
+        type: "official",
+        query: "Modèle congé paternité", // la recherche dans /documents s’appuiera sur ce terme
+        extraLabel: "Modèle du congé paternité",
+      },
+    },
+
+    // 2 — Déclaration de naissance (ok)
     {
       title: "Déclaration de naissance",
       detail:
         "À faire dans les 5 jours ouvrables suivant la naissance à la mairie du lieu de naissance. Permet d’obtenir l’acte de naissance.",
       pro: "Officier d’état civil en mairie",
-      doc: { type: "official", query: "Acte de naissance" },
+      doc: {
+        type: "local",
+        note: "Déclaration réalisée directement à la mairie du lieu de naissance.",
+      },
     },
+
+    // 3 — Reconnaissance (ok)
     {
       title: "Reconnaissance anticipée / filiation",
       detail:
-        "Si les parents ne sont pas mariés : la filiation paternelle doit être établie par reconnaissance (possible avant ou après la naissance).",
+        "Si les parents ne sont pas mariés : la filiation paternelle peut être établie par reconnaissance (avant ou après la naissance).",
       pro: "Mairie (service état civil)",
-      doc: { type: "local", note: "Formulaire fourni par la mairie" },
+      doc: { type: "local", note: "Formulaire fourni par votre mairie" },
     },
+
+    // 4 — Livret de famille (ok)
     {
       title: "Inscription sur le livret de famille",
       detail:
-        "L’officier d’état civil complète le livret existant ou en délivre un nouveau.",
+        "L’officier d’état civil complète le livret existant ou en délivre un nouveau. Géré automatiquement par la mairie.",
       pro: "Mairie du lieu de naissance",
-      doc: { type: "local", note: "Mise à jour automatique par la mairie" },
+      doc: null,
     },
+
+    // 5 — Sécurité sociale (rattachement) -> “Télécharger le document” (S3705)
     {
-      title: "Sécurité sociale",
+      title: "Sécurité sociale (rattachement de l’enfant)",
       detail:
-        "Déclarer la naissance à la CPAM pour rattacher l’enfant à un ou aux deux parents (choix possible).",
+        "Rattacher l’enfant à un ou aux deux parents. Démarche via votre compte ameli et/ou formulaire selon les cas.",
       pro: "CPAM (en ligne ou courrier)",
-      doc: { type: "official", query: "Formulaire rattachement enfant CPAM" },
+      // 👉 On pousse vers /documents avec une requête claire : “S3705”
+      doc: { type: "official", query: "Rattachement enfant CPAM" },
     },
+
+    // 6 — Mutuelle (ok)
     {
       title: "Mutuelle santé",
       detail:
-        "Informer votre complémentaire santé afin d’ajouter l’enfant à votre contrat.",
-      pro: "Mutuelle de santé de l’un des parents",
+        "Informer votre complémentaire santé pour ajouter l’enfant à votre contrat (copies d’acte de naissance/livret, selon mutuelle).",
+      pro: "Mutuelle de santé (parent au choix)",
       doc: null,
     },
+
+    // 7 — CAF (ok)
     {
       title: "CAF / prestations familiales",
       detail:
-        "Déclarer la naissance pour déclencher la prime de naissance (si non déjà versée) et les allocations (PAJE).",
-      pro: "CAF (compte en ligne ou formulaire papier)",
-      doc: { type: "official", query: "Déclaration naissance CAF" },
+        "Déclarer la naissance pour déclencher la prime (si non déjà versée) et la PAJE (sous conditions). Démarches depuis votre espace caf.fr.",
+      pro: "CAF (compte en ligne) ; accompagnement possible par PMI",
+      doc: {
+        type: "link",
+        href: "/documents?q=CAF%20naissance",
+        label: "Accéder aux démarches CAF",
+      },
     },
+
+    // 8 — Protection sociale complémentaire (ok)
     {
-      title: "Protection sociale complémentaire",
+      title: "Protection sociale complémentaire (entreprise)",
       detail:
-        "Informer votre employeur (si mutuelle d’entreprise) et vérifier les couvertures (prévoyance, etc.).",
+        "Informer votre employeur (mutuelle d’entreprise) et vérifier vos couvertures (prévoyance, etc.).",
       pro: "Service RH / employeur",
       doc: null,
-    },
-    {
-      title: "Congé paternité / 2e parent",
-      detail:
-        "À poser dans les 6 mois suivant la naissance (25 jours, ou 32 en cas de naissances multiples).",
-      pro: "Employeur + CPAM",
-      doc: { type: "official", query: "Attestation congé paternité" },
     },
   ];
 
@@ -121,22 +150,46 @@ export default function Naissance() {
                   )}
                 </div>
 
-                {/* Action droite */}
-                <div className="mt-3 md:mt-0 md:w-56 shrink-0">
-                  {s.doc?.type === "official" ? (
+                {/* Actions à droite */}
+                <div className="mt-3 md:mt-0 md:w-56 shrink-0 space-y-2">
+                  {/* Cas “link” (interne vers /documents) */}
+                  {s.doc?.type === "link" && s.doc.href ? (
                     <Link
-                      to={`/documents?q=${encodeURIComponent(s.doc.query)}`}
-                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow"
+                      to={s.doc.href}
+                      target="_blank"
+                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
                       style={{ background: "#5784BA", color: "#fff" }}
                     >
-                      Télécharger le document
+                      {s.doc.label || "Accéder au document"}
                     </Link>
-                  ) : s.doc?.type === "local" ? (
+                  ) : null}
+
+                  {/* Cas “official” : on redirige vers /documents?q=... */}
+                  {s.doc?.type === "official" && s.doc.query ? (
+                    <Link
+                      to={`/documents?q=${encodeURIComponent(s.doc.query)}`}
+                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
+                      style={{ background: "#5784BA", color: "#fff" }}
+                    >
+                      {/* Étape 1 : libellé spécifique demandé */}
+                      {s.doc.extraLabel || "Télécharger le document"}
+                    </Link>
+                  ) : null}
+
+                  {/* Cas “local” */}
+                  {s.doc?.type === "local" ? (
                     <div className="rounded-lg border p-3 bg-slate-50 text-sm">
-                      <div className="font-medium mb-1">Document local</div>
-                      <p className="text-slate-600">{s.doc.note}</p>
+                      <div className="font-medium mb-1">
+                        Document remis sur place
+                      </div>
+                      <p className="text-slate-600">
+                        {s.doc.note || "Document fourni par votre mairie."}
+                      </p>
                     </div>
-                  ) : (
+                  ) : null}
+
+                  {/* Aucun document */}
+                  {!s.doc && (
                     <div className="text-xs text-slate-500 text-center">
                       Aucun document à télécharger
                     </div>
