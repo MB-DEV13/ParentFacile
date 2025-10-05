@@ -1,3 +1,4 @@
+// src/pages/documents/Index.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -30,6 +31,75 @@ function tagColor(tag) {
     default:
       return { background: "#B6D8F2", color: "#1f2a44" };
   }
+}
+
+/* ===========================
+   Helpers recherche "tolérante"
+   - suppression des accents / casse
+   - ponctuation/espaces souples
+   - tolère 1 caractère d’écart (typo)
+=========================== */
+function normalizeStr(s = "") {
+  return String(s)
+    .toLowerCase()
+    .normalize("NFD") // sépare les accents
+    .replace(/[\u0300-\u036f]/g, "") // retire les accents
+    .replace(/[^a-z0-9\s-]/g, " ") // supprime ponctuation
+    .replace(/\s+/g, " ") // espaces multiples -> un seul
+    .trim();
+}
+
+// tolérance <= 1 édition (insertion/suppression/substitution)
+function withinOneEdit(a, b) {
+  if (a === b) return true;
+  const la = a.length,
+    lb = b.length;
+  if (Math.abs(la - lb) > 1) return false;
+
+  // s'assurer que a est la plus courte
+  if (la > lb) return withinOneEdit(b, a);
+
+  let i = 0,
+    j = 0,
+    edits = 0;
+  while (i < la && j < lb) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    edits++;
+    if (edits > 1) return false;
+
+    if (la === lb) {
+      // substitution
+      i++;
+      j++;
+    } else {
+      // insertion dans b (ou suppression de b)
+      j++;
+    }
+  }
+  // si une lettre traine à la fin -> 1 édition
+  return true;
+}
+
+function fuzzyIncludes(hay, needle) {
+  const H = normalizeStr(hay);
+  const N = normalizeStr(needle);
+  if (!N) return true;
+
+  // correspondance directe (insensible aux accents)
+  if (H.includes(N)) return true;
+
+  // comparaison token par token avec tolérance de 1 faute
+  const hTokens = H.split(" ");
+  const nTokens = N.split(" ");
+
+  // On accepte si CHAQUE token recherché "colle" à AU MOINS un token du doc
+  return nTokens.every((nTok) =>
+    hTokens.some((hTok) => hTok.includes(nTok) || withinOneEdit(hTok, nTok))
+  );
 }
 
 export default function DocsIndex() {
@@ -82,21 +152,18 @@ export default function DocsIndex() {
     };
   }, []);
 
-  // Filtre + tri
+  // Filtre + tri (avec fuzzyIncludes)
   const filtered = useMemo(() => {
     let arr = docs;
-    const term = q.trim().toLowerCase();
-    if (term) {
+    const term = q; // on envoie brut à fuzzyIncludes, il normalise
+
+    if (term && term.trim()) {
       arr = arr.filter(
         (d) =>
-          String(d.label || "")
-            .toLowerCase()
-            .includes(term) ||
-          String(d.tag || "")
-            .toLowerCase()
-            .includes(term)
+          fuzzyIncludes(d.label || "", term) || fuzzyIncludes(d.tag || "", term)
       );
     }
+
     if (activeTag) arr = arr.filter((d) => d.tag === activeTag);
 
     return [...arr].sort((a, b) => {
