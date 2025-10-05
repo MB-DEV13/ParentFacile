@@ -1,3 +1,4 @@
+// src/pages/informations/Grossesse.jsx
 import { Link } from "react-router-dom";
 
 export default function Grossesse() {
@@ -14,8 +15,14 @@ export default function Grossesse() {
       detail:
         "À réaliser avant la fin de la 14ᵉ semaine d’aménorrhée. Elle déclenche vos droits (prise en charge, prestations CAF). Souvent télétransmise par le praticien.",
       pro: "Médecin ou sage-femme (établit/valide la déclaration)",
-      // PDF national unifié de moins en moins utilisé (télétransmission), on oriente vers la rubrique Documents pour infos/attestations associées
-      doc: { type: "official", query: "Déclaration de grossesse" },
+      // Bouton lien officiel + bouton 'Télécharger le document' (recherche dans /documents)
+      doc: {
+        type: "link",
+        href: "https://www.service-public.fr/particuliers/vosdroits/F737",
+        label: "Déclarer / infos officielles",
+        // déclenche un deuxième bouton de téléchargement local
+        extraDownloadQuery: "Déclaration de grossesse",
+      },
     },
     {
       title: "Suivi médical obligatoire",
@@ -29,14 +36,14 @@ export default function Grossesse() {
       detail:
         "Échos de référence : autour de 12 SA, 22 SA et 32 SA. Vérification de la croissance et de la vitalité fœtale, dépistage d’anomalies.",
       pro: "Sage-femme échographiste, gynécologue, radiologue",
-      doc: { type: "official", query: "Compte rendu échographie" },
+      doc: null,
     },
     {
       title: "Examens biologiques et dépistages",
       detail:
         "Bilans sanguins (groupe, sérologies), analyse d’urines, dépistage diabète gestationnel (HGPO) si indiqué, suivi tensionnel.",
       pro: "Laboratoire de biologie médicale (sur prescription)",
-      doc: { type: "official", query: "Ordonnances examens prénataux" },
+      doc: null,
     },
     {
       title: "Suivi spécifique si grossesse à risque",
@@ -61,8 +68,9 @@ export default function Grossesse() {
         "Permet d’établir la filiation avant la naissance ; évite les démarches urgentes après l’accouchement.",
       pro: "Mairie (officier d’état civil)",
       doc: {
-        type: "local",
-        note: "Formulaire fourni par la mairie (pièces d’identité, justificatifs)",
+        type: "link",
+        href: "https://www.service-public.fr/particuliers/vosdroits/F887",
+        label: "Reconnaissance anticipée — démarche",
       },
     },
     {
@@ -70,14 +78,18 @@ export default function Grossesse() {
       detail:
         "Vérifier l’éligibilité et déclarer la grossesse à la CAF. La prime de naissance est versée avant la fin du 2ᵉ mois suivant la naissance (sous conditions).",
       pro: "CAF (en ligne) — accompagnement possible par PMI",
-      doc: { type: "official", query: "Dossier PAJE CAF" },
+      doc: {
+        type: "link",
+        href: "https://www.service-public.fr/particuliers/vosdroits/R49959",
+        label: "Demande de prime à la naissance (CAF)",
+      },
     },
     {
-      title: "Congé maternité (et paternité/2e parent)",
+      title: "Congé maternité",
       detail:
-        "Informer votre employeur et fournir le justificatif. Durée légale (1er/2e enfant) : 6 semaines avant + 10 après la naissance (aménagements si grossesse multiple/pathologique).",
-      pro: "Employeur / RH ; CPAM pour indemnités journalières",
-      doc: { type: "official", query: "Attestations congé maternité" },
+        "Informer votre employeur pour le congé maternité (attestations de salaire transmises par l’employeur à la CPAM ; les indemnités journalières sont gérées par la CPAM).",
+      pro: "Employeur / RH ; CPAM (indemnités journalières)",
+      doc: null, // pas de bouton ici (pas de formulaire unique côté usager)
     },
     {
       title: "Séances de préparation à la naissance",
@@ -91,20 +103,20 @@ export default function Grossesse() {
       detail:
         "Noter vos souhaits (positions, accompagnement, peau-à-peau…). À échanger avec l’équipe pour vérifier ce qui est possible.",
       pro: "Sage-femme / équipe de la maternité",
+      // Document local + bouton 'Modèle en ligne'
       doc: {
         type: "local",
         note: "Modèle de projet parfois fourni par la maternité",
+        href: "https://monprojetdenaissance.fr/",
+        linkLabel: "Modèle en ligne",
       },
     },
     {
-      title: "Préparation administrative & trousseau",
+      title: "Préparation administrative & valise de maternité",
       detail:
         "Rassembler : carte Vitale, pièce d’identité, livret de famille, justificatif de domicile, RIB, examens, échos, ordonnance, valise de maternité.",
       pro: "Vous-même (checklist de la maternité)",
-      doc: {
-        type: "official",
-        query: "Checklist maternité / documents utiles",
-      },
+      doc: null,
     },
     {
       title: "Anticiper le retour à domicile et le mode de garde",
@@ -112,8 +124,9 @@ export default function Grossesse() {
         "Contacter les modes de garde (crèche, assistante maternelle) et préparer les démarches (inscriptions, contrats, attestations).",
       pro: "Crèche/Relais Petite Enfance, assistante maternelle, mairie",
       doc: {
-        type: "local",
-        note: "Dossier d’inscription crèche / mairie selon la commune",
+        type: "link",
+        href: "https://monenfant.fr/",
+        label: "Trouver un mode de garde (CAF)",
       },
     },
   ];
@@ -157,7 +170,7 @@ export default function Grossesse() {
               className="rounded-xl border p-4 bg-white shadow-sm hover:shadow-md transition"
             >
               <div className="md:flex md:items-start md:justify-between gap-6">
-                {/* Titre + détails (gauche) */}
+                {/* Titre + détails */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
                     <span
@@ -171,7 +184,6 @@ export default function Grossesse() {
 
                   <p className="text-sm text-slate-600 mt-2">{s.detail}</p>
 
-                  {/* Pro à contacter */}
                   {s.pro && (
                     <p className="mt-2 text-sm">
                       <span className="font-medium">
@@ -182,9 +194,58 @@ export default function Grossesse() {
                   )}
                 </div>
 
-                {/* Action (droite) */}
+                {/* Action */}
                 <div className="mt-3 md:mt-0 md:w-56 shrink-0">
-                  {s.doc?.type === "official" ? (
+                  {s.doc?.type === "link" ? (
+                    <div className="space-y-2">
+                      <a
+                        href={s.doc.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
+                        style={{ background: "#5784BA", color: "#fff" }}
+                      >
+                        {s.doc.label || "Accéder au document"}
+                      </a>
+
+                      {/* Cas spécifique étape 2 : bouton supplémentaire pour télécharger le PDF existant */}
+                      {s.doc.extraDownloadQuery && (
+                        <Link
+                          to={`/documents?q=${encodeURIComponent(
+                            s.doc.extraDownloadQuery
+                          )}`}
+                          className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium border"
+                          style={{ borderColor: "#5784BA", color: "#5784BA" }}
+                        >
+                          Télécharger le document
+                        </Link>
+                      )}
+                    </div>
+                  ) : s.doc?.type === "local" ? (
+                    <div className="space-y-2">
+                      <div className="rounded-lg border p-3 bg-slate-50 text-sm">
+                        <div className="font-medium mb-1">
+                          Document remis sur place
+                        </div>
+                        <p className="text-slate-600">
+                          {s.doc.note ||
+                            "Document spécifique à votre mairie/établissement."}
+                        </p>
+                      </div>
+                      {/* Cas spécifique étape 12 : bouton "Modèle en ligne" */}
+                      {s.doc.href && (
+                        <a
+                          href={s.doc.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
+                          style={{ background: "#5784BA", color: "#fff" }}
+                        >
+                          {s.doc.linkLabel || "Modèle en ligne"}
+                        </a>
+                      )}
+                    </div>
+                  ) : s.doc?.type === "official" ? (
                     <Link
                       to={`/documents?q=${encodeURIComponent(s.doc.query)}`}
                       className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
@@ -193,14 +254,6 @@ export default function Grossesse() {
                     >
                       Télécharger le document
                     </Link>
-                  ) : s.doc?.type === "local" ? (
-                    <div className="rounded-lg border p-3 bg-slate-50 text-sm">
-                      <div className="font-medium mb-1">Document local</div>
-                      <p className="text-slate-600">
-                        {s.doc.note ||
-                          "Document spécifique à votre mairie/établissement."}
-                      </p>
-                    </div>
                   ) : (
                     <div className="text-xs text-slate-500 text-center">
                       Aucun document à télécharger
@@ -212,7 +265,7 @@ export default function Grossesse() {
           ))}
         </ul>
 
-        {/* Bande CTA vers tous les documents */}
+        {/* Bande CTA */}
         <div
           className="mt-8 rounded-2xl border p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
           style={{ background: "#F7F6CF" }}

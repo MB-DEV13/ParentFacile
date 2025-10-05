@@ -1,3 +1,4 @@
+// src/pages/informations/UnATroisAns.jsx
 import { Link } from "react-router-dom";
 
 export default function UnATroisAns() {
@@ -5,52 +6,65 @@ export default function UnATroisAns() {
     {
       title: "Vaccinations obligatoires",
       detail:
-        "Suivre le calendrier vaccinal (11 vaccins obligatoires avant 2 ans). Garder les certificats pour la crèche ou l’école.",
+        "Suivre le calendrier vaccinal (11 vaccins obligatoires avant 2 ans). Conserver les certificats pour la crèche/école.",
       pro: "Médecin traitant ou PMI",
+      // Certificat noté dans le carnet de santé, délivré par le pro de santé → pas de PDF national à télécharger
       doc: {
-        type: "official",
-        query: "Carnet de santé / certificats vaccinaux",
+        type: "local",
+        note: "Certificat vaccinal dans le carnet de santé (délivré par le médecin).",
       },
     },
     {
       title: "Suivi de santé",
       detail:
-        "Visites obligatoires à 9 mois, 24 mois et 36 mois. Examen complet avec certificat de santé à envoyer à la PMI.",
+        "Visites obligatoires à 9, 24 et 36 mois. Un certificat de santé est rempli et transmis à la PMI.",
       pro: "Médecin traitant ou PMI",
-      doc: { type: "official", query: "Certificat de santé obligatoire" },
+      // Certificats fournis/remplis par le médecin (pages du carnet de santé) → pas de PDF à télécharger
+      doc: {
+        type: "local",
+        note: "Certificat de santé rempli par le médecin (PMI).",
+      },
     },
     {
       title: "Modes de garde",
       detail:
-        "Demander une place en crèche, trouver une assistante maternelle agréée, ou opter pour une garde partagée. Prévoir contrats et attestations.",
+        "Demander une place en crèche, trouver une assistante maternelle agréée, ou opter pour une garde partagée. Prévoir contrats/attestations.",
       pro: "Mairie / Relais Petite Enfance / CAF",
+      // Dossiers/crèches = formulaires fournis par la mairie/structure
       doc: {
         type: "local",
-        note: "Formulaire inscription crèche (mairie/commune)",
+        note: "Formulaire d’inscription crèche fourni par la mairie/structure.",
       },
     },
     {
       title: "Aides financières (PAJE, CMG)",
       detail:
-        "Demande de complément de libre choix du mode de garde (CMG), aides PAJE et crédit d’impôt.",
+        "Demande de Complément de libre choix du Mode de Garde (CMG), aides PAJE et démarches Pajemploi.",
       pro: "CAF / URSSAF Pajemploi",
-      doc: { type: "official", query: "Dossier PAJE / CMG" },
+      // Démarches principalement en ligne (compte CAF, Pajemploi)
+      doc: {
+        type: "link",
+        label: "Accéder à la démarche CAF",
+        href: "https://www.caf.fr/allocataires/caf-de-la-reunion/offre-de-service/vie-personnelle/cmg-complement-de-libre-choix-du-mode-de-garde",
+      },
     },
     {
       title: "Allocations familiales",
       detail:
-        "Déclaration annuelle et actualisation de situation pour maintenir les droits.",
+        "Actualiser régulièrement sa situation dans l’espace CAF pour maintenir les droits.",
       pro: "CAF",
+      // Démarches/actualisations en ligne → lien
       doc: null,
     },
     {
       title: "Préparation à la rentrée scolaire",
       detail:
-        "Inscrire l’enfant à l’école maternelle l’année de ses 3 ans. Dossier à déposer auprès de la mairie puis inscription auprès de l’école.",
+        "Inscrire l’enfant à l’école maternelle l’année de ses 3 ans : préinscription en mairie puis inscription à l’école.",
       pro: "Mairie + direction de l’école",
+      // Dossiers fournis par la mairie/école (variables selon commune)
       doc: {
         type: "local",
-        note: "Formulaire d’inscription scolaire fourni par la mairie",
+        note: "Formulaire d’inscription scolaire fourni par la mairie/école.",
       },
     },
   ];
@@ -81,6 +95,7 @@ export default function UnATroisAns() {
           1 à 3 ans
         </Link>
       </div>
+
       <div className="max-w-5xl mx-auto px-4">
         <h1 className="text-2xl sm:text-3xl font-bold mb-6">
           Parcours — 1 à 3 ans
@@ -117,7 +132,24 @@ export default function UnATroisAns() {
 
                 {/* Action droite */}
                 <div className="mt-3 md:mt-0 md:w-56 shrink-0">
-                  {s.doc?.type === "official" ? (
+                  {s.doc?.type === "link" ? (
+                    <a
+                      href={s.doc.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
+                      style={{ background: "#5784BA", color: "#fff" }}
+                    >
+                      {s.doc.label || "Accéder à la démarche"}
+                    </a>
+                  ) : s.doc?.type === "local" ? (
+                    <div className="rounded-lg border p-3 bg-slate-50 text-sm">
+                      <div className="font-medium mb-1">
+                        Document remis sur place
+                      </div>
+                      <p className="text-slate-600">{s.doc.note}</p>
+                    </div>
+                  ) : s.doc?.type === "official" ? (
                     <Link
                       to={`/documents?q=${encodeURIComponent(s.doc.query)}`}
                       className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow"
@@ -125,11 +157,6 @@ export default function UnATroisAns() {
                     >
                       Télécharger le document
                     </Link>
-                  ) : s.doc?.type === "local" ? (
-                    <div className="rounded-lg border p-3 bg-slate-50 text-sm">
-                      <div className="font-medium mb-1">Document local</div>
-                      <p className="text-slate-600">{s.doc.note}</p>
-                    </div>
                   ) : (
                     <div className="text-xs text-slate-500 text-center">
                       Aucun document à télécharger
