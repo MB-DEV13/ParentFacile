@@ -7,31 +7,12 @@ import {
   downloadAllZip,
   previewDocument,
 } from "../../services/api";
+import { normalizeTag, tagColor } from "../../utils/tags";
 
-import family2 from "../../assets/images/family_2.png";
+import family from "../../assets/images/family_2.png";
 
 const TAGS_UI = ["Grossesse", "Naissance", "1–3 ans"];
 const GROUP_ORDER = { Grossesse: 0, Naissance: 1, "1–3 ans": 2 };
-
-function normalizeTag(tag) {
-  if (!tag) return "";
-  return tag
-    .replace(/^0[\s–-]?3\s?ans$/i, "1–3 ans")
-    .replace(/^3\s?ans$/i, "1–3 ans");
-}
-
-function tagColor(tag) {
-  switch (normalizeTag(tag)) {
-    case "Grossesse":
-      return { background: "#9AC8EB", color: "#1f2a44" };
-    case "Naissance":
-      return { background: "#F7F6CF", color: "#1f2a44" };
-    case "1–3 ans":
-      return { background: "#F4CFDF", color: "#1f2a44" };
-    default:
-      return { background: "#B6D8F2", color: "#1f2a44" };
-  }
-}
 
 /* ===========================
    Helpers recherche "tolérante"
@@ -152,18 +133,17 @@ export default function DocsIndex() {
     };
   }, []);
 
-  // Filtre + tri (avec fuzzyIncludes)
+  // Filtre + tri
   const filtered = useMemo(() => {
     let arr = docs;
-    const term = q; // on envoie brut à fuzzyIncludes, il normalise
-
-    if (term && term.trim()) {
+    const term = q.trim();
+    if (term) {
       arr = arr.filter(
         (d) =>
-          fuzzyIncludes(d.label || "", term) || fuzzyIncludes(d.tag || "", term)
+          fuzzyIncludes(String(d.label || ""), term) ||
+          fuzzyIncludes(String(d.tag || ""), term)
       );
     }
-
     if (activeTag) arr = arr.filter((d) => d.tag === activeTag);
 
     return [...arr].sort((a, b) => {
@@ -204,9 +184,9 @@ export default function DocsIndex() {
         {/* Bandeau */}
         <div className="mb-6 rounded-2xl overflow-hidden shadow-sm">
           <img
-            src={family2}
+            src={family}
             alt="Famille - documents utiles"
-            className="w-full max-h-72 object-contain object-center"
+            className="w-full h-48 sm:h-56 lg:h-64 object-cover"
             loading="eager"
             decoding="async"
           />
