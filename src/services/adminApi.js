@@ -39,6 +39,27 @@ export const adminUploadDoc = (payload) => {
 export const adminDeleteDoc = (id) =>
   fetchJson(withBase(`/api/admin/docs/${id}`), { method: "DELETE" });
 
+/**
+ * Met à jour un document existant.
+ * payload peut contenir: { label?, tag?, sort_order?, doc_key?, file? }
+ * - Tous les champs sont optionnels (seuls ceux fournis seront modifiés).
+ * - `file` est facultatif pour remplacer le PDF.
+ */
+export const adminUpdateDoc = (id, payload = {}) => {
+  const fd = new FormData();
+  if (payload.label != null) fd.append("label", payload.label);
+  if (payload.tag != null) fd.append("tag", payload.tag);
+  if (payload.sort_order != null)
+    fd.append("sort_order", String(payload.sort_order));
+  if (payload.doc_key != null) fd.append("doc_key", payload.doc_key);
+  if (payload.file) fd.append("file", payload.file); // optionnel
+
+  return fetchJson(withBase(`/api/admin/docs/${id}`), {
+    method: "PUT",
+    body: fd,
+  });
+};
+
 // ---- Messages
 export const fetchAdminMessages = (limit = 3) =>
   fetchJson(withBase(`/api/admin/messages?limit=${encodeURIComponent(limit)}`));
