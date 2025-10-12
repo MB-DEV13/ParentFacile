@@ -70,7 +70,7 @@ export default function Grossesse() {
       doc: {
         type: "link",
         href: "https://www.service-public.fr/particuliers/vosdroits/F887",
-        label: "Reconnaissance anticipée — démarche",
+        label: "Reconnaissance anticipée / démarche",
       },
     },
     {
