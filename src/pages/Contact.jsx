@@ -1,4 +1,5 @@
 import { useState } from "react";
+import family from "../assets/images/family_3.png";
 
 export default function Contact() {
   const [form, setForm] = useState({
@@ -115,75 +116,86 @@ export default function Contact() {
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">
             Contact
           </h2>
-          <p className="text-slate-700 mt-2 text-base">
+          <p className="text-slate-600 mt-1 max-w-2xl mx-auto mb-6">
             Une question, un document manquant, une correction ? Écris-nous.
           </p>
+          <div className="mb-6 rounded-2xl overflow-hidden shadow-sm">
+            <img
+              src={family}
+              alt="Famille - documents utiles"
+              className="w-full h-48 sm:h-56 lg:h-64 object-cover"
+              loading="eager"
+              decoding="async"
+            />
+          </div>
         </div>
 
         {/* Grille 2 colonnes */}
-        <div className="grid md:grid-cols-2 gap-10 items-start">
+        <div className="grid md:grid-cols-2 gap-10 items-stretch">
           {/* Colonne gauche : formulaire */}
           <form
-            className="bg-white rounded-2xl shadow p-6 space-y-4"
+            className="bg-white rounded-2xl shadow p-6 flex flex-col h-full"
             onSubmit={onSubmit}
             noValidate
           >
-            <h3 className="text-lg font-semibold text-slate-800 mb-2">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">
               Nous contacter
             </h3>
 
-            {/* Email */}
-            <div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                className={`${inputBase} ${
-                  errors.email ? "border-red-500" : ""
-                }`}
-                placeholder="Votre email"
-                value={form.email}
-                onChange={(e) => setField("email", e.target.value)}
-                aria-invalid={!!errors.email}
-                required
-              />
-              {errors.email && <p className={errTxt}>{errors.email}</p>}
-            </div>
+            {/* Zone champs (prend l'espace dispo) */}
+            <div className="flex flex-col gap-4 flex-1">
+              {/* Email */}
+              <div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  className={`${inputBase} ${
+                    errors.email ? "border-red-500" : ""
+                  }`}
+                  placeholder="Votre email"
+                  value={form.email}
+                  onChange={(e) => setField("email", e.target.value)}
+                  aria-invalid={!!errors.email}
+                  required
+                />
+                {errors.email && <p className={errTxt}>{errors.email}</p>}
+              </div>
 
-            {/* Sujet */}
-            <div>
-              <input
-                id="subject"
-                name="subject"
-                type="text"
-                className={`${inputBase} ${
-                  errors.subject ? "border-red-500" : ""
-                }`}
-                placeholder="Sujet"
-                value={form.subject}
-                onChange={(e) => setField("subject", e.target.value)}
-                aria-invalid={!!errors.subject}
-                required
-              />
-              {errors.subject && <p className={errTxt}>{errors.subject}</p>}
-            </div>
+              {/* Sujet */}
+              <div>
+                <input
+                  id="subject"
+                  name="subject"
+                  type="text"
+                  className={`${inputBase} ${
+                    errors.subject ? "border-red-500" : ""
+                  }`}
+                  placeholder="Sujet"
+                  value={form.subject}
+                  onChange={(e) => setField("subject", e.target.value)}
+                  aria-invalid={!!errors.subject}
+                  required
+                />
+                {errors.subject && <p className={errTxt}>{errors.subject}</p>}
+              </div>
 
-            {/* Message */}
-            <div>
-              <textarea
-                id="message"
-                name="message"
-                className={`${inputBase} h-32 ${
-                  errors.message ? "border-red-500" : ""
-                }`}
-                placeholder="Message"
-                value={form.message}
-                onChange={(e) => setField("message", e.target.value)}
-                aria-invalid={!!errors.message}
-                rows={6}
-                required
-                minLength={10}
-              />
+              {/* Message (s'étire) */}
+              <div className="flex-1 flex">
+                <textarea
+                  id="message"
+                  name="message"
+                  className={`${inputBase} flex-1 min-h-[200px] resize-none ${
+                    errors.message ? "border-red-500" : ""
+                  }`}
+                  placeholder="Message"
+                  value={form.message}
+                  onChange={(e) => setField("message", e.target.value)}
+                  aria-invalid={!!errors.message}
+                  required
+                  minLength={10}
+                />
+              </div>
               {errors.message && <p className={errTxt}>{errors.message}</p>}
             </div>
 
@@ -201,8 +213,8 @@ export default function Contact() {
               />
             </div>
 
-            {/* Bouton + état */}
-            <div className="pt-2">
+            {/* Bouton + état (collé en bas) */}
+            <div className="pt-2 mt-auto">
               <button
                 type="submit"
                 disabled={status === "sending"}
