@@ -7,14 +7,8 @@ import {
   previewDocument,
   downloadAllZip,
 } from "../services/api";
+import { normalizeTag, tagColor } from "../utils/tags";
 import hero from "../assets/images/hero-placeholder.png";
-
-function normalizeTag(tag) {
-  if (!tag) return "";
-  return tag
-    .replace(/^0[\s–-]?3\s?ans$/i, "1–3 ans")
-    .replace(/^3\s?ans$/i, "1–3 ans");
-}
 
 export default function Home() {
   const [docs, setDocs] = useState([]);
@@ -29,7 +23,7 @@ export default function Home() {
         const list = (data?.documents || []).map((d, i) => ({
           ...d,
           tag: normalizeTag(d.tag),
-          _idx: i, // secours pour le tri si pas de date
+          _idx: i,
         }));
         setDocs(list);
       } finally {
@@ -41,7 +35,6 @@ export default function Home() {
     };
   }, []);
 
-  // 3 plus récents (par updatedAt/createdAt si dispo, sinon ordre d'arrivée)
   const recent = useMemo(() => {
     const getDate = (d) =>
       d.updatedAt
@@ -142,10 +135,49 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Conteneur avec trait vertical unique */}
-          <div className="relative">
+          {/* --- VERSION MOBILE : cartes simples (pas de ligne/pastilles) --- */}
+          <div className="md:hidden space-y-6">
+            {steps.map((step, idx) => (
+              <article
+                key={idx}
+                className="rounded-2xl border p-4 shadow-sm bg-white"
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
+                    style={{ background: "#B6D8F2" }}
+                  >
+                    {step.num}
+                  </span>
+                  <h3 className="font-semibold">{step.title}</h3>
+                </div>
+
+                <p className="text-sm text-slate-600 mt-2">{step.body}</p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link
+                    to="/documents"
+                    className="text-xs rounded-lg px-3 py-1.5 border"
+                    style={{ borderColor: "#5784BA", color: "#5784BA" }}
+                  >
+                    Voir les documents
+                  </Link>
+                  <Link
+                    to={`/informations/${step.slug}`}
+                    className="text-xs rounded-lg px-3 py-1.5"
+                    style={{ background: "#F4CFDF" }}
+                  >
+                    Guide détaillé
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          {/* --- VERSION DESKTOP : timeline actuelle --- */}
+          <div className="relative hidden md:block">
             {/* Trait vertical global */}
-            <div className="hidden md:block absolute left-[260px] top-0 bottom-0 w-px bg-slate-200" />
+            <div className="absolute left-[260px] top-0 bottom-0 w-px bg-slate-200" />
 
             {/* Grille */}
             <div className="grid md:grid-cols-[240px_40px_minmax(0,1fr)] gap-x-10 gap-y-16">
@@ -271,7 +303,7 @@ export default function Home() {
                 >
                   <div
                     className="text-xs font-medium w-fit rounded-md px-2 py-1 mb-2"
-                    style={{ background: "#B6D8F2", color: "#1f2a44" }}
+                    style={tagColor(doc.tag)}
                   >
                     {doc.tag}
                   </div>
@@ -281,9 +313,7 @@ export default function Home() {
                   <div className="mt-3 flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() =>
-                        previewDocument(doc.public_url, doc.file_name, doc.id)
-                      }
+                      onClick={() => previewDocument(doc.public_url, doc.id)}
                       className="text-sm underline cursor-pointer hover:opacity-80 transition"
                       title="Ouvrir l’aperçu PDF"
                     >
