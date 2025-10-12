@@ -27,11 +27,14 @@ import Login from "./pages/account/Login.jsx";
 import Register from "./pages/account/Register.jsx";
 import Dashboard from "./pages/account/Dashboard.jsx";
 
-// --- Admin (pages + guard) ---
+// Admin (pages + guard)
 import AdminLogin from "./pages/admin/Login.jsx";
 import AdminDashboard from "./pages/admin/Dashboard.jsx";
-import AdminMessages from "./pages/admin/AdminMessages.jsx"; // page “Voir tous”
-import RequireAdmin from "./components/RequireAdmin.jsx"; // guard (doit exister)
+import AdminMessages from "./pages/admin/AdminMessages.jsx";
+import RequireAdmin from "./components/RequireAdmin.jsx";
+
+// Page Introuvable
+import NotFound from "./pages/NotFound.jsx";
 
 const router = createBrowserRouter([
   {
@@ -74,8 +77,7 @@ const router = createBrowserRouter([
         ],
       },
 
-      // (optionnel) petit 404 propre si tu veux
-      // { path: "*", element: <div className="p-6">Page introuvable</div> },
+      { path: "*", element: <NotFound /> },
     ],
   },
 ]);
