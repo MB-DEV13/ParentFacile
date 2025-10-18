@@ -1,32 +1,61 @@
 // src/pages/Legal/Conditions.jsx
-import React from "react";
+/**
+ * Page : CGU
+ * - Dégradé pastel Tailwind (tokens)
+ * - Animations reveal (.reveal .js-reveal -> .in-view)
+ * - Stagger via --delay
+ * - A11y : <main role="main">, titres sémantiques
+ */
+
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 export default function Conditions() {
   const siteName = "ParentFacile";
   const siteUrl = "https://parentfacile.fr"; // ajuste si besoin
   const lastUpdate = "septembre 2025";
-  const contactPath = "/contact"; // route de ta page Contact
+  const contactPath = "/contact";
 
-  const Section = ({ id, title, children }) => (
-    <section id={id} className="bg-white rounded-2xl shadow p-6">
+  // IO pour .js-reveal
+  useEffect(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const els = document.querySelectorAll(".js-reveal");
+    if (!els.length) return;
+    if (prefersReduced) {
+      els.forEach((el) => el.classList.add("in-view"));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("in-view");
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: "0px 0px -10% 0px" }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
+  const Section = ({ id, title, children, delay = "0ms" }) => (
+    <section
+      id={id}
+      className="reveal js-reveal bg-white rounded-2xl shadow p-6"
+      style={{ ["--delay"]: delay }}
+    >
       <h3 className="text-lg font-semibold text-slate-800 mb-3">{title}</h3>
-      <div className="prose prose-slate max-w-none text-sm leading-relaxed">
-        {children}
-      </div>
+      <div className="prose prose-slate max-w-none text-sm leading-relaxed">{children}</div>
     </section>
   );
 
   return (
-    <main
-      className="py-16"
-      style={{
-        background: "linear-gradient(135deg, #9AC8EB 0%, #F4CFDF 100%)",
-      }}
-    >
+    <main role="main" className="py-16 bg-gradient-to-br from-pfBlueLight to-pfPink">
       <div className="max-w-4xl mx-auto px-4">
         {/* En-tête */}
-        <header className="text-center mb-10">
+        <header className="reveal js-reveal text-center mb-10" style={{ ["--delay"]: "40ms" }}>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-800">
             Conditions générales d’utilisation
           </h1>
@@ -36,10 +65,10 @@ export default function Conditions() {
         </header>
 
         <div className="space-y-6">
-          <Section id="objet" title="1. Objet">
+          <Section id="objet" title="1. Objet" delay="60ms">
             <p>
               Le site <strong>{siteName}</strong> (accessible à l’adresse{" "}
-              <a href={siteUrl} target="_blank" rel="noopener noreferrer">
+              <a href={siteUrl} target="_blank" rel="noopener noreferrer" className="underline">
                 {siteUrl}
               </a>
               ) a pour vocation de fournir aux parents des informations
@@ -49,7 +78,7 @@ export default function Conditions() {
             </p>
           </Section>
 
-          <Section id="acces" title="2. Accès au site">
+          <Section id="acces" title="2. Accès au site" delay="90ms">
             <p>
               Le site est accessible gratuitement à tout utilisateur disposant
               d’un accès à internet. Les frais liés à la connexion et au
@@ -57,7 +86,7 @@ export default function Conditions() {
             </p>
           </Section>
 
-          <Section id="services" title="3. Services proposés">
+          <Section id="services" title="3. Services proposés" delay="120ms">
             <ul>
               <li>
                 Des <strong>informations</strong> et guides pratiques liés à la
@@ -80,7 +109,7 @@ export default function Conditions() {
             </p>
           </Section>
 
-          <Section id="utilisation" title="4. Utilisation du site">
+          <Section id="utilisation" title="4. Utilisation du site" delay="150ms">
             <ul>
               <li>Respect des lois et règlements en vigueur.</li>
               <li>
@@ -93,7 +122,7 @@ export default function Conditions() {
             </ul>
           </Section>
 
-          <Section id="propriete" title="5. Propriété intellectuelle">
+          <Section id="propriete" title="5. Propriété intellectuelle" delay="180ms">
             <p>
               Les contenus (textes, visuels, logo {siteName}, mise en page) sont
               la propriété de {siteName} ou utilisés avec autorisation, sauf
@@ -102,7 +131,7 @@ export default function Conditions() {
             </p>
           </Section>
 
-          <Section id="responsabilite" title="6. Responsabilité">
+          <Section id="responsabilite" title="6. Responsabilité" delay="210ms">
             <p>
               {siteName} met tout en œuvre pour fournir des informations
               fiables. Néanmoins, {siteName} ne saurait être tenu responsable :
@@ -110,8 +139,7 @@ export default function Conditions() {
             <ul>
               <li>d’erreurs, omissions ou informations obsolètes ;</li>
               <li>
-                de l’usage fait des informations ou documents par l’utilisateur
-                ;
+                de l’usage fait des informations ou documents par l’utilisateur ;
               </li>
               <li>
                 de dommages indirects liés à l’utilisation ou l’impossibilité
@@ -120,7 +148,7 @@ export default function Conditions() {
             </ul>
           </Section>
 
-          <Section id="liens" title="7. Liens externes">
+          <Section id="liens" title="7. Liens externes" delay="240ms">
             <p>
               Le site peut contenir des liens vers des sites tiers (ex. : CAF,
               Service-Public.fr). {siteName} n’exerce aucun contrôle sur ces
@@ -129,7 +157,7 @@ export default function Conditions() {
             </p>
           </Section>
 
-          <Section id="donnees" title="8. Données personnelles">
+          <Section id="donnees" title="8. Données personnelles" delay="270ms">
             <p>
               Les données transmises via le formulaire de contact (email, sujet,
               message) sont utilisées uniquement pour traiter la demande. Elles
@@ -146,17 +174,7 @@ export default function Conditions() {
             </p>
           </Section>
 
-          {/* (Optionnel) Ajoute cette section si tu utilises des traceurs/Analytics */}
-          {/* <Section id="cookies" title="9. Cookies">
-            <p>
-              Des cookies techniques peuvent être utilisés pour assurer le
-              fonctionnement du site. Si des cookies de mesure d’audience ou
-              tiers sont déployés, une bannière d’information et un module de
-              consentement seront proposés.
-            </p>
-          </Section> */}
-
-          <Section id="modifications" title="9. Modifications des CGU">
+          <Section id="modifications" title="9. Modifications des CGU" delay="300ms">
             <p>
               {siteName} se réserve le droit de modifier les présentes
               conditions à tout moment. La version applicable est celle publiée
@@ -164,7 +182,7 @@ export default function Conditions() {
             </p>
           </Section>
 
-          <Section id="contact" title="10. Contact">
+          <Section id="contact" title="10. Contact" delay="330ms">
             <p>
               Pour toute question relative aux présentes CGU, vous pouvez nous
               écrire via la page{" "}

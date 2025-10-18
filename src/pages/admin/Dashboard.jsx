@@ -1,5 +1,12 @@
-// src/pages/admin/Dashboard.jsx
-import { useEffect, useState, useMemo } from "react";
+/**
+ * Page : Admin — Dashboard
+ * - Documents + 3 derniers messages via useApi
+ * - Refresh après upload/delete/update en incrémentant un compteur
+ * - UI/UX inchangée (tri, modale d’édition, toasts…)
+ */
+
+import { useEffect, useMemo, useState } from "react";
+import useApi from "../../hooks/useApi";
 import {
   adminDeleteDoc,
   adminListDocs,
@@ -23,17 +30,12 @@ function slugify(s) {
 }
 
 export default function AdminDashboard() {
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // --- Form state
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
-  const navigate = useNavigate();
-
-  const [lastMsgs, setLastMsgs] = useState([]);
-  const [loadingMsgs, setLoadingMsgs] = useState(true);
-  const [errMsgs, setErrMsgs] = useState("");
-
   const [editingDoc, setEditingDoc] = useState(null);
   const [toast, setToast] = useState("");
 
@@ -51,34 +53,24 @@ export default function AdminDashboard() {
     setErr("");
   }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await adminListDocs();
-        setList(data.documents || []);
-      } catch (e) {
-        setErr(e.message || "Erreur chargement documents");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  // --- Refresh flag pour recharger via useApi après mutations
+  const [refresh, setRefresh] = useState(0);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoadingMsgs(true);
-        const data = await fetchAdminMessages(3);
-        setLastMsgs(data.messages || []);
-        setErrMsgs("");
-      } catch (_e) {
-        setErrMsgs("Erreur chargement des messages");
-      } finally {
-        setLoadingMsgs(false);
-      }
-    })();
-  }, []);
+  // --- Data via useApi
+  const {
+    data: docsData,
+    loading: loadingDocs,
+    error: errDocs,
+  } = useApi(adminListDocs, [refresh]);
+
+  const {
+    data: msgsData,
+    loading: loadingMsgs,
+    error: errMsgs,
+  } = useApi(() => fetchAdminMessages(3), [refresh]);
+
+  const list = useMemo(() => docsData?.documents || [], [docsData]);
+  const lastMsgs = useMemo(() => msgsData?.messages || [], [msgsData]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -99,8 +91,7 @@ export default function AdminDashboard() {
         doc_key: "",
         file: null,
       });
-      const data = await adminListDocs();
-      setList(data.documents || []);
+      setRefresh((x) => x + 1); // refetch
     } catch (e) {
       setErr(e.message || "Erreur ajout document");
     } finally {
@@ -112,7 +103,7 @@ export default function AdminDashboard() {
     if (!confirm("Supprimer ce document ?")) return;
     try {
       await adminDeleteDoc(id);
-      setList((arr) => arr.filter((d) => d.id !== id));
+      setRefresh((x) => x + 1); // refetch
     } catch (e) {
       alert(e.message || "Erreur suppression");
     }
@@ -133,9 +124,9 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Tri : par order puis label
+  // Tri : par order puis label
   const sortedDocs = useMemo(() => {
-    return [...list].sort((a, b) => {
+    return [...(list || [])].sort((a, b) => {
       const oa = a.order ?? a.sort_order ?? 999;
       const ob = b.order ?? b.sort_order ?? 999;
       if (oa !== ob) return oa - ob;
@@ -233,9 +224,7 @@ export default function AdminDashboard() {
                   type="file"
                   accept="application/pdf"
                   className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
-                  onChange={(e) =>
-                    setField("file", e.target.files?.[0] || null)
-                  }
+                  onChange={(e) => setField("file", e.target.files?.[0] || null)}
                 />
               </div>
 
@@ -256,11 +245,17 @@ export default function AdminDashboard() {
 
           {/* Liste (droite) */}
           <section className="bg-white rounded-2xl shadow p-6">
-            <h2 className="text-lg font-semibold mb-3">Documents</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold mb-3">Documents</h2>
+              {errDocs && (
+                <span className="text-sm text-red-600">
+                  {String(errDocs.message || errDocs)}
+                </span>
+              )}
+            </div>
 
-            {/* Limite la hauteur et ajoute un scroll interne */}
             <div className="max-h-[70vh] overflow-auto pr-1">
-              {loading ? (
+              {loadingDocs ? (
                 <p>Chargement…</p>
               ) : sortedDocs.length === 0 ? (
                 <p className="text-slate-600">Aucun document.</p>
@@ -271,10 +266,8 @@ export default function AdminDashboard() {
                       key={d.id}
                       className="rounded-2xl border p-4 shadow-sm hover:shadow-md transition flex flex-col gap-2"
                     >
-                      {/* Ligne du haut : badge + titre + bouton Modifier */}
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          {/* Badge */}
                           <div className="flex flex-col items-center">
                             <span
                               className="text-xs font-medium rounded-md px-2 py-1 mb-1"
@@ -282,8 +275,6 @@ export default function AdminDashboard() {
                             >
                               {normalizeTag(d.tag)}
                             </span>
-
-                            {/* Ouvrir aligné sous le badge */}
                             <a
                               href={d.public_url}
                               target="_blank"
@@ -295,7 +286,6 @@ export default function AdminDashboard() {
                             </a>
                           </div>
 
-                          {/* Titre centré verticalement */}
                           <div className="flex flex-col justify-center flex-1 min-w-0">
                             <h4 className="font-semibold leading-snug text-slate-800 truncate">
                               {d.label}
@@ -305,7 +295,6 @@ export default function AdminDashboard() {
                             </p>
                           </div>
 
-                          {/* Bouton modifier */}
                           <button
                             onClick={() => onEdit(d)}
                             className="h-9 rounded-xl px-3 text-sm font-medium shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-1"
@@ -316,7 +305,6 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {/* Ligne du bas : bouton supprimer aligné à droite */}
                       <div className="flex justify-end mt-1">
                         <button
                           onClick={() => onDelete(d.id)}
@@ -345,8 +333,10 @@ export default function AdminDashboard() {
           {loadingMsgs ? (
             <p className="text-sm text-slate-500 mt-3">Chargement…</p>
           ) : errMsgs ? (
-            <p className="text-sm text-red-600 mt-3">{errMsgs}</p>
-          ) : lastMsgs.length === 0 ? (
+            <p className="text-sm text-red-600 mt-3">
+              {String(errMsgs.message || errMsgs)}
+            </p>
+          ) : (lastMsgs || []).length === 0 ? (
             <p className="text-sm text-slate-500 mt-3">
               Aucun message pour l’instant.
             </p>
@@ -363,7 +353,13 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div className="text-xs text-slate-600 mt-1">
-                    De : <span className="font-mono">{m.email}</span>
+                    De :{" "}
+                    <a
+                      href={`mailto:${m.email}`}
+                      className="font-mono underline hover:opacity-80"
+                    >
+                      {m.email}
+                    </a>
                   </div>
                   <p className="text-sm mt-2 line-clamp-3">{m.message}</p>
                 </li>
@@ -380,9 +376,8 @@ export default function AdminDashboard() {
           onClose={() => setEditingDoc(null)}
           onSaved={async () => {
             setEditingDoc(null);
-            const data = await adminListDocs();
-            setList(data.documents || []);
             setToast("Document modifié avec succès.");
+            setRefresh((x) => x + 1); // refetch
             setTimeout(() => setToast(""), 3000);
           }}
         />
@@ -395,9 +390,7 @@ export default function AdminDashboard() {
 function EditDocModal({ doc, onClose, onSaved }) {
   const [label, setLabel] = useState(doc.label || "");
   const [tag, setTag] = useState(doc.tag || "Grossesse");
-  const [sortOrder, setSortOrder] = useState(
-    doc.order ?? doc.sort_order ?? 999
-  );
+  const [sortOrder, setSortOrder] = useState(doc.order ?? doc.sort_order ?? 999);
   const [docKey, setDocKey] = useState(doc.doc_key || "");
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -433,10 +426,7 @@ function EditDocModal({ doc, onClose, onSaved }) {
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Modifier le document</h3>
-          <button
-            onClick={onClose}
-            className="rounded-lg px-2 py-1 text-sm border"
-          >
+          <button onClick={onClose} className="rounded-lg px-2 py-1 text-sm border">
             Fermer
           </button>
         </div>
@@ -487,9 +477,7 @@ function EditDocModal({ doc, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="text-sm font-medium">
-              Remplacer le fichier (optionnel)
-            </label>
+            <label className="text-sm font-medium">Remplacer le fichier (optionnel)</label>
             <input
               type="file"
               accept="application/pdf"
@@ -497,19 +485,14 @@ function EditDocModal({ doc, onClose, onSaved }) {
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
             <p className="text-xs text-slate-500 mt-1">
-              Fichier actuel :{" "}
-              <span className="underline">{doc.file_name}</span>
+              Fichier actuel : <span className="underline">{doc.file_name}</span>
             </p>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="pt-2 flex gap-2 justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl px-3 py-2 text-sm border"
-            >
+            <button type="button" onClick={onClose} className="rounded-xl px-3 py-2 text-sm border">
               Annuler
             </button>
             <button
@@ -526,3 +509,4 @@ function EditDocModal({ doc, onClose, onSaved }) {
     </div>
   );
 }
+

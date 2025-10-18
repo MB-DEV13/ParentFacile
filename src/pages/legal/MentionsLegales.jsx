@@ -1,32 +1,57 @@
 // src/pages/Legal/Legal.jsx
-import React from "react";
+/**
+ * Page : Mentions légales
+ * - Dégradé + reveal + stagger
+ */
+
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 export default function Legal() {
   const siteName = "ParentFacile";
-  const siteUrl = "https://parentfacile.fr"; // ajuste si besoin
+  const siteUrl = "https://parentfacile.fr";
   const lastUpdate = "septembre 2025";
-  const contactPath = "/contact"; // route de ta page Contact
+  const contactPath = "/contact";
 
-  const Section = ({ id, title, children }) => (
-    <section id={id} className="bg-white rounded-2xl shadow p-6">
+  useEffect(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const els = document.querySelectorAll(".js-reveal");
+    if (!els.length) return;
+    if (prefersReduced) {
+      els.forEach((el) => el.classList.add("in-view"));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("in-view");
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: "0px 0px -10% 0px" }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
+  const Section = ({ id, title, children, delay = "0ms" }) => (
+    <section
+      id={id}
+      className="reveal js-reveal bg-white rounded-2xl shadow p-6"
+      style={{ ["--delay"]: delay }}
+    >
       <h3 className="text-lg font-semibold text-slate-800 mb-3">{title}</h3>
-      <div className="prose prose-slate max-w-none text-sm leading-relaxed">
-        {children}
-      </div>
+      <div className="prose prose-slate max-w-none text-sm leading-relaxed">{children}</div>
     </section>
   );
 
   return (
-    <main
-      className="py-16"
-      style={{
-        background: "linear-gradient(135deg, #9AC8EB 0%, #F4CFDF 100%)",
-      }}
-    >
+    <main role="main" className="py-16 bg-gradient-to-br from-pfBlueLight to-pfPink">
       <div className="max-w-4xl mx-auto px-4">
         {/* En-tête */}
-        <header className="text-center mb-10">
+        <header className="reveal js-reveal text-center mb-10" style={{ ["--delay"]: "40ms" }}>
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-800">
             Mentions légales
           </h1>
@@ -36,13 +61,13 @@ export default function Legal() {
         </header>
 
         <div className="space-y-6">
-          <Section id="editeur" title="1. Éditeur du site">
+          <Section id="editeur" title="1. Éditeur du site" delay="60ms">
             <p>
               Le site <strong>{siteName}</strong> est édité dans le cadre d’un
               projet personnel et non commercial. Contact :{" "}
               <a
                 href="mailto:contact@parentfacile.fr"
-                className="underline text-[#5784BA]"
+                className="underline text-pfBlue"
               >
                 contact@parentfacile.fr
               </a>
@@ -50,7 +75,7 @@ export default function Legal() {
             </p>
           </Section>
 
-          <Section id="hebergeur" title="2. Hébergement">
+          <Section id="hebergeur" title="2. Hébergement" delay="90ms">
             <p>
               Le site est hébergé par :
               <br />
@@ -60,14 +85,14 @@ export default function Legal() {
                 href="https://www.ovhcloud.com/fr/"
                 target="_blank"
                 rel="noreferrer"
-                className="underline text-[#5784BA]"
+                className="underline text-pfBlue"
               >
                 www.ovhcloud.com
               </a>
             </p>
           </Section>
 
-          <Section id="responsabilite" title="3. Responsabilité">
+          <Section id="responsabilite" title="3. Responsabilité" delay="120ms">
             <p>
               {siteName} s’efforce de fournir des informations fiables et
               actualisées. Toutefois, {siteName} ne saurait être tenu
@@ -76,8 +101,7 @@ export default function Legal() {
             <ul>
               <li>d’erreurs, omissions ou informations obsolètes ;</li>
               <li>
-                de l’usage fait des informations ou documents par l’utilisateur
-                ;
+                de l’usage fait des informations ou documents par l’utilisateur ;
               </li>
               <li>
                 de dommages indirects liés à l’utilisation du site ou à
@@ -86,7 +110,7 @@ export default function Legal() {
             </ul>
           </Section>
 
-          <Section id="propriete" title="4. Propriété intellectuelle">
+          <Section id="propriete" title="4. Propriété intellectuelle" delay="150ms">
             <p>
               L’ensemble des contenus présents sur le site{" "}
               <strong>{siteName}</strong> (textes, images, PDF, graphismes,
@@ -96,7 +120,7 @@ export default function Legal() {
             </p>
           </Section>
 
-          <Section id="donnees" title="5. Données personnelles">
+          <Section id="donnees" title="5. Données personnelles" delay="180ms">
             <p>
               Les données collectées via le formulaire de contact sont utilisées
               uniquement pour répondre aux messages envoyés. Elles ne sont pas
@@ -113,7 +137,7 @@ export default function Legal() {
             </p>
           </Section>
 
-          <Section id="credits" title="6. Crédits">
+          <Section id="credits" title="6. Crédits" delay="210ms">
             <p>
               Illustrations libres de droits et contenus rédigés dans le cadre
               du projet <strong>{siteName}</strong>. Toute demande de retrait ou
@@ -129,3 +153,4 @@ export default function Legal() {
     </main>
   );
 }
+

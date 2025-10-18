@@ -1,27 +1,19 @@
-// src/pages/admin/AdminMessages.jsx
-import { useEffect, useState } from "react";
-import { fetchAllAdminMessages, adminLogout } from "../../services/adminApi";
+/**
+ * Page : Admin — Messages
+ * - Data chargée via useApi(fetchAllAdminMessages)
+ * - Bouton logout conservé
+ * - UI pastel identique
+ */
+
 import { Link, useNavigate } from "react-router-dom";
+import useApi from "../../hooks/useApi";
+import { fetchAllAdminMessages, adminLogout } from "../../services/adminApi";
 
 export default function AdminMessages() {
-  const [list, setList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await fetchAllAdminMessages();
-        setList(data.messages || []);
-      } catch (e) {
-        setErr(e.message || "Erreur chargement");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const { data, loading, error } = useApi(fetchAllAdminMessages, []);
+  const list = data?.messages || [];
 
   async function onLogout() {
     try {
@@ -34,9 +26,7 @@ export default function AdminMessages() {
   return (
     <main
       className="py-12"
-      style={{
-        background: "linear-gradient(135deg, #9AC8EB 0%, #F4CFDF 100%)",
-      }}
+      style={{ background: "linear-gradient(135deg, #9AC8EB 0%, #F4CFDF 100%)" }}
     >
       <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-center justify-between mb-6">
@@ -66,8 +56,8 @@ export default function AdminMessages() {
 
           {loading ? (
             <p>Chargement…</p>
-          ) : err ? (
-            <p className="text-red-600">{err}</p>
+          ) : error ? (
+            <p className="text-red-600">{String(error.message || error)}</p>
           ) : list.length === 0 ? (
             <p className="text-slate-600">Aucun message.</p>
           ) : (
@@ -83,11 +73,15 @@ export default function AdminMessages() {
                     </div>
                   </div>
                   <div className="text-xs text-slate-600 mt-1">
-                    De : <span className="font-mono">{m.email}</span>
+                    De :{" "}
+                    <a
+                      href={`mailto:${m.email}`}
+                      className="font-mono underline hover:opacity-80"
+                    >
+                      {m.email}
+                    </a>
                   </div>
-                  <p className="text-sm mt-2 whitespace-pre-wrap">
-                    {m.message}
-                  </p>
+                  <p className="text-sm mt-2 whitespace-pre-wrap">{m.message}</p>
                 </li>
               ))}
             </ul>
@@ -97,3 +91,5 @@ export default function AdminMessages() {
     </main>
   );
 }
+
+

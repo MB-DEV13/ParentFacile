@@ -1,12 +1,15 @@
+/**
+ * Header (en-tête principal)
+ * -------------------------------------------------
+ * Version harmonisée avec la charte ParentFacile :
+ * - Fond jaune pastel (pfYellow) au hover et sur page active
+ * - Texte en gras au survol et sur page active
+ * - Transitions douces cohérentes avec le footer
+ */
+
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import logo from "../assets/images/logo.png";
-
-const linkBase = "text-base px-3 py-2 rounded-lg";
-const active = ({ isActive }) =>
-  isActive
-    ? "text-slate-900 font-semibold"
-    : "text-slate-700 hover:text-slate-900";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -14,7 +17,7 @@ export default function Header() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
 
-  // reset champ recherche et fermer menu au changement de page
+  // Ferme le menu et réinitialise la recherche à chaque navigation
   useEffect(() => {
     setQ("");
     setOpen(false);
@@ -27,32 +30,30 @@ export default function Header() {
     setOpen(false);
   }
 
+  // Liens de navigation — réutilisables pour desktop & mobile
   const NavLinks = ({ onClick }) => (
     <>
-      <NavLink to="/" className={active + " " + linkBase} onClick={onClick}>
-        Accueil
-      </NavLink>
-      <NavLink
-        to="/informations"
-        className={active + " " + linkBase}
-        onClick={onClick}
-      >
-        Informations
-      </NavLink>
-      <NavLink
-        to="/documents"
-        className={active + " " + linkBase}
-        onClick={onClick}
-      >
-        Documents
-      </NavLink>
-      <NavLink
-        to="/contact"
-        className={active + " " + linkBase}
-        onClick={onClick}
-      >
-        Contact
-      </NavLink>
+      {[
+        { to: "/", label: "Accueil" },
+        { to: "/informations", label: "Informations" },
+        { to: "/documents", label: "Documents" },
+        { to: "/contact", label: "Contact" },
+      ].map((link) => (
+        <NavLink
+          key={link.to}
+          to={link.to}
+          onClick={onClick}
+          className={({ isActive }) =>
+            `text-base px-3 py-2 rounded-lg transition-all duration-300 ${
+              isActive
+                ? "bg-pfYellow font-semibold text-slate-900"
+                : "text-slate-700 hover:bg-pfYellow hover:font-semibold hover:text-slate-900"
+            }`
+          }
+        >
+          {link.label}
+        </NavLink>
+      ))}
     </>
   );
 
@@ -83,7 +84,7 @@ export default function Header() {
           <NavLinks />
         </nav>
 
-        {/* Recherche (desktop + tablet) */}
+        {/* Recherche desktop */}
         <form
           onSubmit={onSubmit}
           className="ml-auto md:ml-6 w-40 sm:w-56 hidden sm:block"
@@ -93,13 +94,12 @@ export default function Header() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Rechercher…"
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ outlineColor: "#5784BA" }}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pfBlue"
               aria-label="Rechercher"
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 grid place-items-center rounded-md hover:bg-slate-100"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 grid place-items-center rounded-md hover:bg-slate-100 transition-colors"
               aria-label="Lancer la recherche"
               title="Lancer la recherche"
             >
@@ -117,46 +117,50 @@ export default function Header() {
           </div>
         </form>
 
-        {/* Burger (mobile / tablette étroite) */}
+        {/* Burger menu (mobile) */}
         <button
           type="button"
-          className="ml-auto inline-flex md:hidden items-center justify-center h-10 w-10 rounded-lg border border-slate-300 hover:bg-white/70"
+          className="ml-auto inline-flex md:hidden items-center justify-center h-10 w-10 rounded-lg border border-slate-300 hover:bg-white/70 transition-colors"
           aria-label="Ouvrir le menu"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
         >
-          <svg
-            className={`h-6 w-6 ${open ? "hidden" : "block"}`}
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            fill="none"
-            strokeWidth="2"
-          >
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          <svg
-            className={`h-6 w-6 ${open ? "block" : "hidden"}`}
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            fill="none"
-            strokeWidth="2"
-          >
-            <path d="M6 6l12 12M18 6l-12 12" />
-          </svg>
+          {!open ? (
+            <svg
+              className="h-6 w-6"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              fill="none"
+              strokeWidth="2"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          ) : (
+            <svg
+              className="h-6 w-6"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              fill="none"
+              strokeWidth="2"
+            >
+              <path d="M6 6l12 12M18 6l-12 12" />
+            </svg>
+          )}
         </button>
       </div>
 
-      {/* Drawer mobile — RENDU UNIQUEMENT QUAND OUVERT */}
+      {/* Drawer mobile */}
       {open && (
         <div className="md:hidden fixed inset-0 z-[60]" aria-hidden={!open}>
           {/* overlay */}
-          <div className="absolute inset-0 " onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-black/10" onClick={() => setOpen(false)} />
+
           {/* panneau */}
           <div className="absolute right-0 top-0 h-full w-[85%] max-w-xs bg-white shadow-xl border-l border-slate-200">
             <div className="p-3.5 border-b flex items-center justify-between">
               <span className="font-semibold">Menu</span>
               <button
-                className="h-9 w-9 grid place-items-center rounded-lg hover:bg-slate-100"
+                className="h-9 w-9 grid place-items-center rounded-lg hover:bg-slate-100 transition-colors"
                 aria-label="Fermer le menu"
                 onClick={() => setOpen(false)}
               >
@@ -172,20 +176,19 @@ export default function Header() {
               </button>
             </div>
 
-            {/* recherche mobile — sans 'jour' au-dessus */}
-            <form onSubmit={onSubmit} className="bg-white border-b ">
+            {/* Recherche mobile */}
+            <form onSubmit={onSubmit} className="bg-white border-b">
               <div className="relative px-4 py-3">
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Rechercher…"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                  style={{ outlineColor: "#5784BA" }}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pfBlue"
                   aria-label="Rechercher"
                 />
                 <button
                   type="submit"
-                  className="absolute right-6 top-1/2 -translate-y-1/2 h-7 w-7 grid place-items-center rounded-md hover:bg-slate-100"
+                  className="absolute right-6 top-1/2 -translate-y-1/2 h-7 w-7 grid place-items-center rounded-md hover:bg-slate-100 transition-colors"
                   aria-label="Lancer la recherche"
                   title="Lancer la recherche"
                 >
@@ -203,7 +206,7 @@ export default function Header() {
               </div>
             </form>
 
-            {/* liens */}
+            {/* Liens mobiles */}
             <nav className="p-3 flex flex-col gap-1 bg-white">
               {[
                 { to: "/", label: "Accueil" },
@@ -215,10 +218,10 @@ export default function Header() {
                   key={link.to}
                   to={link.to}
                   className={({ isActive }) =>
-                    `px-3 py-2 rounded-lg text-base ${
+                    `px-3 py-2 rounded-lg text-base transition-all duration-200 ${
                       isActive
-                        ? "bg-slate-100 text-slate-900 font-semibold"
-                        : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                        ? "bg-pfYellow text-slate-900 font-semibold"
+                        : "text-slate-700 hover:bg-pfYellow hover:text-slate-900 hover:font-semibold"
                     }`
                   }
                   onClick={() => setOpen(false)}
@@ -233,3 +236,5 @@ export default function Header() {
     </header>
   );
 }
+
+

@@ -1,40 +1,42 @@
 // src/pages/Home.jsx
-import { useEffect, useMemo, useState } from "react";
+/**
+ * Page : Accueil
+ * -------------------------------------------------
+ * - Hero en dégradé pastel + CTA
+ * - Parcours (mobile = cartes / desktop = timeline)
+ * - Bande CTA "Documents" avec bouton ZIP (mobile + desktop)
+ * - Derniers documents ajoutés
+ * - Animations :
+ *    • Hover des cartes (ombre + léger zoom)
+ *    • Révélation progressive au scroll (.reveal / .in-view) via IntersectionObserver
+ */
+
+import { useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
+import useApi from "../hooks/useApi";
 import {
   fetchDocuments,
   downloadDocument,
-  previewDocument,
   downloadAllZip,
 } from "../services/api";
 import { normalizeTag, tagColor } from "../utils/tags";
 import hero from "../assets/images/hero-placeholder.png";
 
 export default function Home() {
-  const [docs, setDocs] = useState([]);
-  const [loadingDocs, setLoadingDocs] = useState(true);
+  // --- charge les documents via le hook useApi
+  const { data: docsData, loading: loadingDocs } = useApi(fetchDocuments, []);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data = await fetchDocuments();
-        if (!mounted) return;
-        const list = (data?.documents || []).map((d, i) => ({
-          ...d,
-          tag: normalizeTag(d.tag),
-          _idx: i,
-        }));
-        setDocs(list);
-      } finally {
-        if (mounted) setLoadingDocs(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Normalisation + index de fallback
+  const docs = useMemo(() => {
+    const raw = docsData?.documents || [];
+    return raw.map((d, i) => ({
+      ...d,
+      tag: normalizeTag(d.tag),
+      _idx: i, // fallback d'ordre
+    }));
+  }, [docsData]);
 
+  // --- tri "récents" (updatedAt > createdAt > fallback index)
   const recent = useMemo(() => {
     const getDate = (d) =>
       d.updatedAt
@@ -45,36 +47,70 @@ export default function Home() {
     return [...docs].sort((a, b) => getDate(b) - getDate(a)).slice(0, 3);
   }, [docs]);
 
+  // --- même anim de révélation au scroll que sur /documents
+  useEffect(() => {
+    const prefersReduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    const els = document.querySelectorAll(".js-reveal");
+    if (!els.length) return;
+
+    if (prefersReduced) {
+      els.forEach((el) => el.classList.add("in-view"));
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -10% 0px" }
+    );
+
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [loadingDocs, recent.length]);
+
+  // --- contenu "Parcours"
   const steps = [
     {
       num: "01",
       label: "Grossesse",
       title: "Grossesse",
-      body: "Déclarations, suivi médical, congés, allocations : toutes les étapes avec liens officiels et pièces à fournir.",
+      body:
+        "Déclarations, suivi médical, congés, allocations : toutes les étapes avec liens officiels et pièces à fournir.",
       slug: "grossesse",
     },
     {
       num: "02",
       label: "Naissance",
       title: "Naissance",
-      body: "Reconnaissance, acte de naissance, sécurité sociale, mutuelle, prime de naissance, modes de garde.",
+      body:
+        "Reconnaissance, acte de naissance, sécurité sociale, mutuelle, prime de naissance, modes de garde.",
       slug: "naissance",
     },
     {
       num: "03",
       label: "1 à 3 ans",
       title: "1 à 3 ans",
-      body: "Vaccinations, PAJE/CAF, crèche/assistante maternelle, rentrée en maternelle, attestations utiles.",
+      body:
+        "Vaccinations, PAJE/CAF, crèche/assistante maternelle, rentrée en maternelle, attestations utiles.",
       slug: "1-3-ans",
     },
   ];
 
   return (
     <>
-      {/* HERO */}
-      <section className="relative bg-gradient-to-r from-[#B6D8F2] to-[#F4CFDF]">
+      {/* ========== HERO ========== */}
+      <section className="relative bg-gradient-to-r from-pfBlueSoft to-pfPink">
         <div className="max-w-6xl mx-auto px-4 grid md:grid-cols-2 gap-10 items-center py-14">
-          <div>
+          <div className="reveal js-reveal">
             <h1 className="text-3xl sm:text-4xl font-bold leading-tight">
               Toutes vos démarches parentales, réunies en un seul endroit.
             </h1>
@@ -85,14 +121,14 @@ export default function Home() {
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 to="/informations"
-                className="rounded-xl px-4 py-2 text-sm font-medium shadow"
+                className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 transition"
                 style={{ background: "#5784BA", color: "#fff" }}
               >
                 Voir le parcours
               </Link>
               <Link
                 to="/documents"
-                className="rounded-xl px-4 py-2 text-sm font-medium border"
+                className="rounded-xl px-4 py-2 text-sm font-medium border hover:bg-white/50 transition"
                 style={{ borderColor: "#5784BA", color: "#5784BA" }}
               >
                 Télécharger des documents
@@ -100,30 +136,26 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative rounded-3xl overflow-hidden shadow-lg">
+          <div className="relative rounded-3xl overflow-hidden shadow-lg reveal js-reveal">
             <img
               src={hero}
               alt="Famille / illustration"
               className="w-full h-64 sm:h-80 object-cover"
+              loading="eager"
+              decoding="async"
             />
-            <div
-              className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-1 text-xs font-semibold"
-              style={{ color: "#5784BA" }}
-            >
+            <div className="absolute bottom-4 left-4 bg-white/90 rounded-xl px-3 py-1 text-xs font-semibold text-pfBlue">
               Démarches basées sur les normes FR
             </div>
           </div>
         </div>
       </section>
 
-      {/* INFORMATIONS / TIMELINE */}
+      {/* ========== INFORMATIONS / TIMELINE ========== */}
       <section id="infos" className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <span
-              className="text-xs font-semibold tracking-wider uppercase"
-              style={{ color: "#5784BA" }}
-            >
+          <div className="text-center mb-10 reveal js-reveal">
+            <span className="text-xs font-semibold tracking-wider uppercase text-pfBlue">
               Notre parcours
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold mt-2">
@@ -135,18 +167,16 @@ export default function Home() {
             </p>
           </div>
 
-          {/* --- VERSION MOBILE : cartes simples (pas de ligne/pastilles) --- */}
+          {/* --- MOBILE : cartes (avec hover & reveal) --- */}
           <div className="md:hidden space-y-6">
             {steps.map((step, idx) => (
               <article
                 key={idx}
-                className="rounded-2xl border p-4 shadow-sm bg-white"
+                className="reveal js-reveal rounded-2xl border p-4 shadow-sm bg-white transition-transform duration-200 hover:shadow-md hover:scale-[1.02] will-change-transform"
+                style={{ ["--delay"]: `${idx * 60}ms` }}
               >
                 <div className="flex items-center gap-3">
-                  <span
-                    className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                    style={{ background: "#B6D8F2" }}
-                  >
+                  <span className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white bg-pfBlueSoft">
                     {step.num}
                   </span>
                   <h3 className="font-semibold">{step.title}</h3>
@@ -157,15 +187,14 @@ export default function Home() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Link
                     to="/documents"
-                    className="text-xs rounded-lg px-3 py-1.5 border"
+                    className="text-xs rounded-lg px-3 py-1.5 border hover:bg-white transition"
                     style={{ borderColor: "#5784BA", color: "#5784BA" }}
                   >
                     Voir les documents
                   </Link>
                   <Link
                     to={`/informations/${step.slug}`}
-                    className="text-xs rounded-lg px-3 py-1.5"
-                    style={{ background: "#F4CFDF" }}
+                    className="text-xs rounded-lg px-3 py-1.5 bg-pfPink hover:brightness-105 transition"
                   >
                     Guide détaillé
                   </Link>
@@ -174,7 +203,7 @@ export default function Home() {
             ))}
           </div>
 
-          {/* --- VERSION DESKTOP : timeline actuelle --- */}
+          {/* --- DESKTOP : timeline actuelle --- */}
           <div className="relative hidden md:block">
             {/* Trait vertical global */}
             <div className="absolute left-[260px] top-0 bottom-0 w-px bg-slate-200" />
@@ -184,11 +213,11 @@ export default function Home() {
               {steps.map((step, idx) => (
                 <div className="contents" key={idx}>
                   {/* Colonne 1 */}
-                  <div className="flex items-start gap-3 pt-[2px]">
-                    <div
-                      className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                      style={{ background: "#B6D8F2" }}
-                    >
+                  <div
+                    className="flex items-start gap-3 pt-[2px] reveal js-reveal"
+                    style={{ ["--delay"]: `${idx * 60}ms` }}
+                  >
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white bg-pfBlueSoft">
                       {step.num}
                     </div>
                     <div className="font-medium">{step.label}</div>
@@ -206,21 +235,23 @@ export default function Home() {
                   </div>
 
                   {/* Colonne 3 */}
-                  <div>
+                  <div
+                    className="reveal js-reveal"
+                    style={{ ["--delay"]: `${idx * 60 + 80}ms` }}
+                  >
                     <h3 className="text-lg font-semibold">{step.title}</h3>
                     <p className="text-sm text-slate-600 mt-1">{step.body}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Link
                         to="/documents"
-                        className="text-xs rounded-lg px-3 py-1.5 border"
+                        className="text-xs rounded-lg px-3 py-1.5 border hover:bg-white transition"
                         style={{ borderColor: "#5784BA", color: "#5784BA" }}
                       >
                         Voir les documents
                       </Link>
                       <Link
                         to={`/informations/${step.slug}`}
-                        className="text-xs rounded-lg px-3 py-1.5"
-                        style={{ background: "#F4CFDF" }}
+                        className="text-xs rounded-lg px-3 py-1.5 bg-pfPink hover:brightness-105 transition"
                       >
                         Guide détaillé
                       </Link>
@@ -233,26 +264,29 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BANDE DOCUMENTS CTA */}
-      <section className="py-10" style={{ background: "#F7F6CF" }}>
+      {/* ========== BANDE DOCUMENTS CTA ========== */}
+      <section className="py-10 bg-pfYellow">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center gap-4 justify-between">
-          <div>
+          <div className="reveal js-reveal">
             <h3 className="text-xl font-semibold">Documents à télécharger</h3>
             <p className="text-slate-700 text-sm">
               Classés chronologiquement pour aller à l’essentiel.
             </p>
           </div>
-          <div className="flex gap-3">
+          <div
+            className="flex gap-3 w-full sm:w-auto reveal js-reveal"
+            style={{ ["--delay"]: "100ms" }}
+          >
             <Link
               to="/documents"
-              className="rounded-xl px-4 py-2 text-sm font-medium border"
+              className="rounded-xl px-4 py-2 text-sm font-medium border hover:bg-white transition w-full sm:w-auto text-center"
               style={{ borderColor: "#5784BA", color: "#5784BA" }}
             >
               Voir les documents
             </Link>
             <button
               onClick={downloadAllZip}
-              className="rounded-xl px-4 py-2 text-sm font-medium shadow"
+              className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 transition w-full sm:w-auto"
               style={{ background: "#5784BA", color: "#fff" }}
             >
               Tout télécharger (ZIP)
@@ -261,23 +295,24 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CARROUSEL DOCUMENTS RÉCENTS */}
+      {/* ========== DERNIERS DOCUMENTS ========== */}
       <section className="py-12 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex items-end justify-between gap-4 mb-6">
-            <div>
-              <h3 className="text-xl font-semibold">
-                Derniers documents ajoutés
-              </h3>
+            <div className="reveal js-reveal">
+              <h3 className="text-xl font-semibold">Derniers documents ajoutés</h3>
               <p className="text-slate-600 text-sm">
-                Un aperçu des nouveautés, vous en trouverez plus dans la page
-                Documents.
+                Un aperçu des nouveautés, vous en trouverez plus dans la page Documents.
               </p>
             </div>
             <Link
               to="/documents?sort=recent"
-              className="text-sm font-medium rounded-lg px-3 py-2 border"
-              style={{ borderColor: "#5784BA", color: "#5784BA" }}
+              className="text-sm font-medium rounded-lg px-3 py-2 border hover:bg-white transition reveal js-reveal"
+              style={{
+                borderColor: "#5784BA",
+                color: "#5784BA",
+                ["--delay"]: "80ms",
+              }}
             >
               Tout voir
             </Link>
@@ -296,10 +331,11 @@ export default function Home() {
             <p className="text-slate-600">Aucun document pour le moment.</p>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {recent.map((doc) => (
+              {recent.map((doc, i) => (
                 <article
                   key={doc.id || doc.label}
-                  className="rounded-2xl border bg-white p-4 flex flex-col shadow-sm"
+                  className="reveal js-reveal rounded-2xl border bg-white p-4 flex flex-col shadow-sm transition-transform duration-200 hover:shadow-md hover:scale-[1.02] will-change-transform"
+                  style={{ ["--delay"]: `${i * 60}ms` }}
                 >
                   <div
                     className="text-xs font-medium w-fit rounded-md px-2 py-1 mb-2"
@@ -307,24 +343,27 @@ export default function Home() {
                   >
                     {doc.tag}
                   </div>
+
                   <h4 className="font-semibold leading-snug flex-1">
                     {doc.label}
                   </h4>
+
                   <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => previewDocument(doc.public_url, doc.id)}
-                      className="text-sm underline cursor-pointer hover:opacity-80 transition"
+                    {/* Aperçu — ouvert en NOUVEL onglet */}
+                    <a
+                      href={doc.public_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm underline text-pfBlue hover:text-pfBlue/80 transition-colors"
                       title="Ouvrir l’aperçu PDF"
                     >
                       Aperçu
-                    </button>
+                    </a>
 
                     <button
                       type="button"
                       onClick={() => downloadDocument(doc.id)}
-                      className="ml-auto inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium cursor-pointer hover:opacity-90 active:opacity-95 transition"
-                      style={{ background: "#9AC8EB" }}
+                      className="ml-auto inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium text-slate-800 bg-pfBlueLight hover:bg-pfBlueLight/80 transition-colors"
                       title="Télécharger le PDF"
                     >
                       <svg
@@ -349,3 +388,5 @@ export default function Home() {
     </>
   );
 }
+
+
