@@ -1,31 +1,96 @@
-// frontend/src/services/adminApi.js
-const API = import.meta.env.VITE_API_URL || "";
+/**
+ * Admin API — ParentFacile
+ * -------------------------------------------------
+ * - API_BASE : VITE_API_URL (sans trailing slash) ou vide (proxy Vite en dev).
+ * - request() : fetch avec timeout + erreurs JSON lisibles.
+ * - withBase() : construit des URLs fiables en dev/prod.
+ * - Exports : identiques à ta version (login/logout/me/docs/messages).
+ */
 
-const withBase = (p) => `${API}${p.startsWith("/") ? p : `/${p}`}`;
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+const DEFAULT_TIMEOUT = 12000;
 
-const fetchJson = async (url, opts = {}) => {
-  const res = await fetch(url, { credentials: "include", ...opts });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || "Erreur requête");
-  return data;
-};
+/** Concatène API_BASE + path (et gère les URLs déjà absolues) */
+function withBase(path) {
+  if (!path) return API_BASE || "";
+  if (/^https?:\/\//i.test(path)) return path; // déjà absolue
 
-// ---- Auth
+  if (API_BASE) return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  // en dev (proxy Vite), on garde un chemin relatif à la racine
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
+/**
+ * Helper fetch générique (JSON) avec timeout et erreurs propres.
+ * Ajoute credentials: 'include' pour les routes d'admin (cookies/session).
+ */
+async function request(url, options = {}) {
+  const { timeout = DEFAULT_TIMEOUT, ...rest } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: { Accept: "application/json", ...(rest.headers || {}) },
+      signal: controller.signal,
+      ...rest,
+    });
+
+    const contentType = res.headers.get("content-type") || "";
+    const isJson = contentType.includes("application/json");
+    const data = isJson ? await res.json().catch(() => ({})) : await res.text();
+
+    if (!res.ok) {
+      const message =
+        (isJson && (data?.message || data?.error)) ||
+        (typeof data === "string" && data) ||
+        `HTTP ${res.status} – ${res.statusText}`;
+
+      const err = new Error(message);
+      err.status = res.status;
+      err.payload = isJson ? data : { raw: data };
+      throw err;
+    }
+
+    return isJson ? data : { raw: data };
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+/* =========================
+ *        AUTH
+ * =======================*/
+
+/** POST /api/admin/auth/login */
 export const adminLogin = (email, password) =>
-  fetchJson(withBase("/api/admin/auth/login"), {
+  request(withBase("/api/admin/auth/login"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
 
+/** POST /api/admin/auth/logout */
 export const adminLogout = () =>
-  fetchJson(withBase("/api/admin/auth/logout"), { method: "POST" });
+  request(withBase("/api/admin/auth/logout"), {
+    method: "POST",
+  });
 
-export const adminMe = () => fetchJson(withBase("/api/admin/auth/me"));
+/** GET /api/admin/auth/me */
+export const adminMe = () => request(withBase("/api/admin/auth/me"));
 
-// ---- Docs
-export const adminListDocs = () => fetchJson(withBase("/api/admin/docs"));
+/* =========================
+ *        DOCS
+ * =======================*/
 
+/** GET /api/admin/docs */
+export const adminListDocs = () => request(withBase("/api/admin/docs"));
+
+/**
+ * POST /api/admin/docs
+ * payload: { label, tag, sort_order?, doc_key, file(File) }
+ */
 export const adminUploadDoc = (payload) => {
   const fd = new FormData();
   fd.append("label", payload.label);
@@ -33,17 +98,22 @@ export const adminUploadDoc = (payload) => {
   fd.append("sort_order", String(payload.sort_order ?? 999));
   fd.append("doc_key", payload.doc_key);
   fd.append("file", payload.file);
-  return fetchJson(withBase("/api/admin/docs"), { method: "POST", body: fd });
+
+  return request(withBase("/api/admin/docs"), {
+    method: "POST",
+    body: fd,
+  });
 };
 
+/** DELETE /api/admin/docs/:id */
 export const adminDeleteDoc = (id) =>
-  fetchJson(withBase(`/api/admin/docs/${id}`), { method: "DELETE" });
+  request(withBase(`/api/admin/docs/${encodeURIComponent(id)}`), {
+    method: "DELETE",
+  });
 
 /**
- * Met à jour un document existant.
+ * PUT /api/admin/docs/:id
  * payload peut contenir: { label?, tag?, sort_order?, doc_key?, file? }
- * - Tous les champs sont optionnels (seuls ceux fournis seront modifiés).
- * - `file` est facultatif pour remplacer le PDF.
  */
 export const adminUpdateDoc = (id, payload = {}) => {
   const fd = new FormData();
@@ -52,17 +122,25 @@ export const adminUpdateDoc = (id, payload = {}) => {
   if (payload.sort_order != null)
     fd.append("sort_order", String(payload.sort_order));
   if (payload.doc_key != null) fd.append("doc_key", payload.doc_key);
-  if (payload.file) fd.append("file", payload.file); // optionnel
+  if (payload.file) fd.append("file", payload.file);
 
-  return fetchJson(withBase(`/api/admin/docs/${id}`), {
+  return request(withBase(`/api/admin/docs/${encodeURIComponent(id)}`), {
     method: "PUT",
     body: fd,
   });
 };
 
-// ---- Messages
-export const fetchAdminMessages = (limit = 3) =>
-  fetchJson(withBase(`/api/admin/messages?limit=${encodeURIComponent(limit)}`));
+/* =========================
+ *      MESSAGES
+ * =======================*/
 
+/** GET /api/admin/messages?limit= */
+export const fetchAdminMessages = (limit = 3) =>
+  request(
+    withBase(`/api/admin/messages?limit=${encodeURIComponent(limit)}`)
+  );
+
+/** GET /api/admin/messages/all */
 export const fetchAllAdminMessages = () =>
-  fetchJson(withBase("/api/admin/messages/all"));
+  request(withBase("/api/admin/messages/all"));
+

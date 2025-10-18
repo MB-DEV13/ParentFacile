@@ -1,67 +1,56 @@
-// src/pages/documents/Index.jsx
+/**
+ * Page : Documents à télécharger
+ * -------------------------------------------------
+ * - Recherche tolérante (accents, ponctuation, 1 faute)
+ * - Filtres par tags (Grossesse / Naissance / 1–3 ans)
+ * - Tri : groupe > ordre > label
+ * - Actions : Aperçu (nouvel onglet) / Téléchargement / ZIP global
+ * - Animations :
+ *    • Hover des cartes (ombre + léger zoom)
+ *    • Révélation progressive au scroll (.reveal / .in-view) via IntersectionObserver
+ * - Data : chargée avec useApi(fetchDocuments)
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import useApi from "../../hooks/useApi";
 import {
   fetchDocuments,
   downloadDocument,
   downloadAllZip,
-  previewDocument,
 } from "../../services/api";
 import { normalizeTag, tagColor } from "../../utils/tags";
-
 import family from "../../assets/images/family_2.png";
 
 const TAGS_UI = ["Grossesse", "Naissance", "1–3 ans"];
 const GROUP_ORDER = { Grossesse: 0, Naissance: 1, "1–3 ans": 2 };
 
-/* ===========================
-   Helpers recherche "tolérante"
-   - suppression des accents / casse
-   - ponctuation/espaces souples
-   - tolère 1 caractère d’écart (typo)
-=========================== */
+/* =========================================================================
+ * Helpers recherche "tolérante"
+ * ========================================================================= */
 function normalizeStr(s = "") {
   return String(s)
     .toLowerCase()
-    .normalize("NFD") // sépare les accents
-    .replace(/[\u0300-\u036f]/g, "") // retire les accents
-    .replace(/[^a-z0-9\s-]/g, " ") // supprime ponctuation
-    .replace(/\s+/g, " ") // espaces multiples -> un seul
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
-// tolérance <= 1 édition (insertion/suppression/substitution)
 function withinOneEdit(a, b) {
   if (a === b) return true;
-  const la = a.length,
-    lb = b.length;
+  const la = a.length, lb = b.length;
   if (Math.abs(la - lb) > 1) return false;
-
-  // s'assurer que a est la plus courte
   if (la > lb) return withinOneEdit(b, a);
 
-  let i = 0,
-    j = 0,
-    edits = 0;
+  let i = 0, j = 0, edits = 0;
   while (i < la && j < lb) {
-    if (a[i] === b[j]) {
-      i++;
-      j++;
-      continue;
-    }
+    if (a[i] === b[j]) { i++; j++; continue; }
     edits++;
     if (edits > 1) return false;
-
-    if (la === lb) {
-      // substitution
-      i++;
-      j++;
-    } else {
-      // insertion dans b (ou suppression de b)
-      j++;
-    }
+    if (la === lb) { i++; j++; } else { j++; }
   }
-  // si une lettre traine à la fin -> 1 édition
   return true;
 }
 
@@ -69,36 +58,32 @@ function fuzzyIncludes(hay, needle) {
   const H = normalizeStr(hay);
   const N = normalizeStr(needle);
   if (!N) return true;
-
-  // correspondance directe (insensible aux accents)
   if (H.includes(N)) return true;
-
-  // comparaison token par token avec tolérance de 1 faute
   const hTokens = H.split(" ");
   const nTokens = N.split(" ");
-
-  // On accepte si CHAQUE token recherché "colle" à AU MOINS un token du doc
   return nTokens.every((nTok) =>
     hTokens.some((hTok) => hTok.includes(nTok) || withinOneEdit(hTok, nTok))
   );
 }
 
 export default function DocsIndex() {
-  const [docs, setDocs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // --- Data via useApi
+  const { data, loading, error } = useApi(fetchDocuments, []);
+  const docs = useMemo(
+    () => (data?.documents || []).map((d) => ({ ...d, tag: normalizeTag(d.tag) })),
+    [data]
+  );
 
+  // --- UI <-> URL (q, tag)
   const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState(searchParams.get("q") || "");
   const [activeTag, setActiveTag] = useState(searchParams.get("tag") || "");
 
-  // URL -> UI
   useEffect(() => {
     setQ(searchParams.get("q") || "");
     setActiveTag(searchParams.get("tag") || "");
   }, [searchParams]);
 
-  // UI -> URL (petit debounce)
   useEffect(() => {
     const t = setTimeout(() => {
       const p = new URLSearchParams();
@@ -109,31 +94,7 @@ export default function DocsIndex() {
     return () => clearTimeout(t);
   }, [q, activeTag, setSearchParams]);
 
-  // Fetch depuis la DB (via API)
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data = await fetchDocuments(); // { documents: [...] }
-        if (!mounted) return;
-        setDocs(
-          (data?.documents || []).map((d) => ({
-            ...d,
-            tag: normalizeTag(d.tag),
-          }))
-        );
-      } catch (e) {
-        setError(e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  // Filtre + tri
+  // Filtrage + tri
   const filtered = useMemo(() => {
     let arr = docs;
     const term = q.trim();
@@ -157,23 +118,51 @@ export default function DocsIndex() {
     });
   }, [docs, q, activeTag]);
 
+  /* Révélation progressive au scroll */
+  useEffect(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const els = document.querySelectorAll(".js-reveal");
+    if (!els.length) return;
+
+    if (prefersReduced) {
+      els.forEach((el) => el.classList.add("in-view"));
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -10% 0px" }
+    );
+
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [filtered.length]);
+
   return (
-    <section className="py-16" style={{ background: "#F7F6CF" }}>
+    <section className="py-16 bg-pfYellow">
       <div className="max-w-6xl mx-auto px-4">
-        {/* Header */}
-        <div className="flex items-end justify-between gap-6 mb-6 sm:mb-8">
+        {/* Header + CTA ZIP */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
               Documents à télécharger
             </h2>
             <p className="text-slate-700 mt-1 text-base">
               Classés chronologiquement pour aller à l’essentiel.
             </p>
           </div>
+
           <button
             type="button"
             onClick={downloadAllZip}
-            className="hidden sm:inline-block rounded-xl px-4 py-2 text-sm font-medium shadow cursor-pointer hover:brightness-110 active:brightness-95 transition"
+            className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition w-full sm:w-auto"
             style={{ background: "#5784BA", color: "#fff" }}
             title="Télécharger tous les PDF en ZIP"
           >
@@ -181,11 +170,11 @@ export default function DocsIndex() {
           </button>
         </div>
 
-        {/* Bandeau */}
+        {/* Bandeau visuel */}
         <div className="mb-6 rounded-2xl overflow-hidden shadow-sm">
           <img
             src={family}
-            alt="Famille - documents utiles"
+            alt="Illustration d’une famille — documents utiles"
             className="w-full h-48 sm:h-56 lg:h-64 object-cover"
             loading="eager"
             decoding="async"
@@ -199,8 +188,7 @@ export default function DocsIndex() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Rechercher un document (titre, tag)…"
-              className="w-full rounded-xl border bg-white border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2"
-              style={{ outlineColor: "#5784BA" }}
+              className="w-full rounded-xl border bg-white border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pfBlue"
               aria-label="Rechercher dans les documents"
             />
             <svg
@@ -220,24 +208,23 @@ export default function DocsIndex() {
             <button
               type="button"
               onClick={() => setActiveTag("")}
-              className={`rounded-full px-3 py-1.5 text-sm border ${
-                activeTag === ""
-                  ? "bg-white shadow font-medium"
-                  : "hover:bg-white"
+              className={`rounded-full px-3 py-1.5 text-sm border transition-colors ${
+                activeTag === "" ? "bg-white shadow font-medium" : "hover:bg-white"
               }`}
+              aria-pressed={activeTag === ""}
             >
               Tous
             </button>
+
             {TAGS_UI.map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setActiveTag(t === activeTag ? "" : t)}
-                className={`rounded-full px-3 py-1.5 text-sm border ${
-                  activeTag === t
-                    ? "bg-white shadow font-medium"
-                    : "hover:bg-white"
+                className={`rounded-full px-3 py-1.5 text-sm border transition-colors ${
+                  activeTag === t ? "bg-white shadow font-medium" : "hover:bg-white"
                 }`}
+                aria-pressed={activeTag === t}
               >
                 {t}
               </button>
@@ -245,23 +232,26 @@ export default function DocsIndex() {
           </div>
         </div>
 
-        {/* Contenu */}
+        {/* États */}
         {loading && <p>Chargement…</p>}
         {error && (
-          <p className="text-red-600">
-            Erreur: {String(error.message || error)}
+          <p className="text-red-600" role="alert">
+            Erreur : {String(error.message || error)}
           </p>
         )}
         {!loading && !error && filtered.length === 0 && (
-          <p className="text-slate-600">Aucun document trouvé.</p>
+          <p className="text-slate-600">Aucun document trouvé pour ces critères.</p>
         )}
 
+        {/* Grille des documents */}
         {!loading && !error && filtered.length > 0 && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filtered.map((doc) => (
+            {filtered.map((doc, i) => (
               <article
                 key={doc.id}
-                className="rounded-2xl border bg-white p-4 flex flex-col shadow-sm"
+                className="reveal js-reveal rounded-2xl border bg-white p-4 flex flex-col shadow-sm transition-transform duration-200 hover:shadow-md hover:scale-[1.02] will-change-transform"
+                style={{ ["--delay"]: `${i * 60}ms` }}
+                aria-label={`Document ${doc.label}`}
               >
                 <div
                   className="text-xs font-medium w-fit rounded-md px-2 py-1 mb-2"
@@ -270,26 +260,28 @@ export default function DocsIndex() {
                   {normalizeTag(doc.tag)}
                 </div>
 
-                <h3 className="font-semibold leading-snug flex-1">
+                <h3 className="font-semibold leading-snug flex-1 text-slate-800">
                   {doc.label}
                 </h3>
 
                 <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => previewDocument(doc.public_url, doc.id)}
-                    className="text-sm underline cursor-pointer hover:opacity-80 transition"
+                  <a
+                    href={doc.public_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm underline text-pfBlue hover:text-pfBlue/80 transition-colors"
                     title="Ouvrir l’aperçu PDF"
+                    aria-label={`Aperçu du document ${doc.label}`}
                   >
                     Aperçu
-                  </button>
+                  </a>
 
                   <button
                     type="button"
                     onClick={() => downloadDocument(doc.id)}
-                    className="ml-auto inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium cursor-pointer hover:opacity-90 active:opacity-95 transition"
-                    style={{ background: "#9AC8EB" }}
+                    className="ml-auto inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium text-slate-800 bg-pfBlueLight hover:bg-pfBlueLight/80 transition-colors"
                     title="Télécharger le PDF"
+                    aria-label={`Télécharger le PDF ${doc.label}`}
                   >
                     <svg
                       className="h-4 w-4"
@@ -297,6 +289,7 @@ export default function DocsIndex() {
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2"
+                      aria-hidden="true"
                     >
                       <path d="M12 5v14" />
                       <path d="M19 12l-7 7-7-7" />
@@ -312,3 +305,5 @@ export default function DocsIndex() {
     </section>
   );
 }
+
+
