@@ -1,4 +1,12 @@
-// server.js
+// server.js (ParentFacile)
+// -----------------------------------------------------------------------------
+// Version de base conservée – ajout de commentaires et micro-réorganisation
+// Objectifs :
+// - Ne pas changer le comportement existant
+// - Clarifier chaque bloc par des commentaires courts
+// - Légères sécurisations/robustesses sans nouvelle dépendance
+// -----------------------------------------------------------------------------
+
 import "dotenv/config.js";
 import express from "express";
 import cors from "cors";
@@ -22,7 +30,9 @@ import createAdminMessagesRouter from "./src/routes/admin.messages.js";
 // --------------------------------------------------
 const app = express();
 
-// ---------- CORS ----------
+// --------------------------------------------------
+// CORS (liste blanche depuis .env ALLOWED_ORIGINS)
+// --------------------------------------------------
 const allowed = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((s) => s.trim())
@@ -30,21 +40,26 @@ const allowed = (process.env.ALLOWED_ORIGINS || "")
 
 app.use(
   cors({
+    // si aucune origine définie → autorise tout (utile en dev)
     origin: allowed.length ? allowed : true,
     credentials: true, // nécessaire pour cookie httpOnly côté front
   })
 );
 
-// ---------- Parsers ----------
-app.use(express.json());
-app.use(cookieParser());
+// --------------------------------------------------
+// Parsers
+// --------------------------------------------------
+app.use(express.json()); // JSON body parser (taille par défaut)
+app.use(cookieParser()); // cookies (JWT admin, etc.)
 
-// ---------- Chemin PDF robuste ----------
+// --------------------------------------------------
+// FICHIERS PDF (chemin robuste + dossier public)
+// --------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PDF_DIR = path.join(__dirname, "public", "pdfs");
-fs.mkdirSync(PDF_DIR, { recursive: true });
+fs.mkdirSync(PDF_DIR, { recursive: true }); // s'assure que le dossier existe
 
 if (!fs.existsSync(PDF_DIR)) {
   console.error("[PDF] Dossier introuvable:", PDF_DIR);
@@ -52,10 +67,12 @@ if (!fs.existsSync(PDF_DIR)) {
   console.log("[PDF] Dossier servi depuis:", PDF_DIR);
 }
 
-// ---------- Statique PDF ----------
+// Sert les PDF statiques (ex: /pdfs/monfichier.pdf)
 app.use("/pdfs", express.static(PDF_DIR));
 
-// ---------- MySQL ----------
+// --------------------------------------------------
+// BASE DE DONNÉES (MySQL via pool)
+// --------------------------------------------------
 export const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
   user: process.env.MYSQL_USER,
@@ -68,7 +85,7 @@ export const pool = mysql.createPool({
 // Rendre le pool dispo dans les routers via req.app.get("db")
 app.set("db", pool);
 
-// Crée les tables si besoin
+// Création idempotente des tables nécessaires
 async function ensureSchema() {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -106,7 +123,9 @@ async function ensureSchema() {
   console.log("MySQL OK: tables messages, documents, admin_users prêtes");
 }
 
-// ---------- SMTP / Nodemailer ----------
+// --------------------------------------------------
+// SMTP / Nodemailer (utilise les variables .env)
+// --------------------------------------------------
 const useSsl = Number(process.env.SMTP_PORT || 0) === 465;
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -114,6 +133,8 @@ const transporter = nodemailer.createTransport({
   secure: useSsl,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
+
+// Vérifie la connexion SMTP au démarrage (log clair mais non bloquant)
 async function verifySmtp() {
   try {
     await transporter.verify();
@@ -123,7 +144,9 @@ async function verifySmtp() {
   }
 }
 
-// ---------- Rate limit global ----------
+// --------------------------------------------------
+// Rate limit global (anti-abus simple)
+// --------------------------------------------------
 const limiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,
@@ -132,55 +155,42 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// ---------- Validation contact ----------
+// --------------------------------------------------
+// VALIDATION du formulaire de contact (express-validator)
+// --------------------------------------------------
 const validateContact = [
   body("email").isEmail().withMessage("Email invalide"),
-  body("subject")
-    .trim()
-    .isLength({ min: 2, max: 190 })
-    .withMessage("Sujet invalide"),
-  body("message")
-    .trim()
-    .isLength({ min: 10, max: 5000 })
-    .withMessage("Message invalide"),
-  body("hp")
-    .optional()
-    .custom((v) => (v ? Promise.reject("bot") : true)),
+  body("subject").trim().isLength({ min: 2, max: 190 }).withMessage("Sujet invalide"),
+  body("message").trim().isLength({ min: 10, max: 5000 }).withMessage("Message invalide"),
+  // Champ honeypot: si rempli → bot
+  body("hp").optional().custom((v) => (v ? Promise.reject("bot") : true)),
 ];
 
-// Préflight CORS
+// Préflight CORS spécifique au endpoint contact (utile si front en mode strict)
 app.options("/api/contact", cors());
 
 // --------------------------------------------------
 // ROUTES PUBLIQUES
 // --------------------------------------------------
 
-// Santé
+// Healthcheck simple + DB
 app.get("/health", async (_req, res) => {
   try {
     const [rows] = await pool.query("SELECT 1 AS ok");
-    res.json({
-      ok: true,
-      db: rows?.[0]?.ok === 1,
-      env: process.env.NODE_ENV || "development",
-    });
+    res.json({ ok: true, db: rows?.[0]?.ok === 1, env: process.env.NODE_ENV || "development" });
   } catch {
-    res.json({
-      ok: true,
-      db: false,
-      env: process.env.NODE_ENV || "development",
-    });
+    res.json({ ok: true, db: false, env: process.env.NODE_ENV || "development" });
   }
 });
 
-// Contact (public)
+// Formulaire de contact (public)
 app.post("/api/contact", validateContact, async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty())
-    return res.status(400).json({ ok: false, errors: errors.array() });
+  if (!errors.isEmpty()) return res.status(400).json({ ok: false, errors: errors.array() });
 
   const { email, subject, message } = req.body;
 
+  // 1) Persist en DB
   let insertedId = null;
   try {
     const [result] = await pool.execute(
@@ -193,10 +203,11 @@ app.post("/api/contact", validateContact, async (req, res) => {
     return res.status(500).json({ ok: false, message: "Erreur serveur (DB)" });
   }
 
+  // 2) Envoi email
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: process.env.CONTACT_TO,
+      from: process.env.SMTP_FROM || process.env.SMTP_USER, // nom lisible si fourni
+      to: process.env.CONTACT_TO, // destinataire admin
       subject: `ParentFacile – ${subject}`,
       replyTo: email,
       text: `De: ${email}\n\n${message}`,
@@ -210,9 +221,7 @@ app.post("/api/contact", validateContact, async (req, res) => {
     return res.json({ ok: true, id: String(insertedId) });
   } catch (err) {
     console.error("Erreur envoi email:", err);
-    return res
-      .status(500)
-      .json({ ok: false, message: "Erreur serveur (envoi email)" });
+    return res.status(500).json({ ok: false, message: "Erreur serveur (envoi email)" });
   }
 });
 
@@ -222,7 +231,7 @@ app.use("/api/docs", createDocsRouter(pool, PDF_DIR));
 // --------------------------------------------------
 // ROUTES ADMIN (auth + gestion docs)
 // --------------------------------------------------
-// auth + docs gardent l'injection via req.app.set("db") si tu veux
+// Injection du pool via req.app.set("db") pour les routers admin
 app.use(
   "/api/admin/auth",
   (req, _res, next) => {
@@ -243,28 +252,28 @@ app.use(
 // ✅ messages via la factory (PAS de wrapper)
 app.use("/api/admin/messages", createAdminMessagesRouter(pool));
 
-// 404
-app.use((req, res) =>
-  res.status(404).json({ ok: false, message: "Not found" })
-);
+// --------------------------------------------------
+// 404 & HANDLER ERREURS
+// --------------------------------------------------
+app.use((req, res) => res.status(404).json({ ok: false, message: "Not found" }));
 
-// Handler erreurs
 app.use((err, req, res, _next) => {
   console.error("Unhandled error:", err);
   res.status(500).json({ ok: false, message: "Erreur serveur" });
 });
 
 // --------------------------------------------------
-// DEMARRAGE
+// DÉMARRAGE
 // --------------------------------------------------
 const port = Number(process.env.PORT || 4000);
 app.listen(port, async () => {
   try {
-    await ensureSchema(); // crée les tables
-    await ensureSeedAdmin(pool); // ✅ seed admin APRÈS ensureSchema
+    await ensureSchema(); // crée les tables si besoin
+    await ensureSeedAdmin(pool); // seed admin APRÈS ensureSchema
   } catch (e) {
     console.error("Erreur ensureSchema/seed:", e?.message || e);
   }
-  await verifySmtp();
+  await verifySmtp(); // test non bloquant
   console.log(`API http://localhost:${port}`);
 });
+
