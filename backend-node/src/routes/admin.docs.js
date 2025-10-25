@@ -47,7 +47,7 @@ const storage = multer.diskStorage({
       .parse(file.originalname)
       .name.replace(/[^\w\s.-]/g, "_")
       .replace(/\s+/g, "_")
-      .slice(0, 120); // évite les noms trop longs
+      .slice(0, 120);
     const stamp = Date.now();
     cb(null, `${base}_${stamp}.pdf`);
   },
@@ -62,7 +62,7 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
 });
 
-// Handler d'erreurs multer (doit être placé APRES les routes qui utilisent upload)
+// Handler d'erreurs multer
 function multerErrorHandler(err, _req, res, next) {
   if (err instanceof multer.MulterError) {
     // Erreurs natives Multer (LIMIT_FILE_SIZE, etc.)
@@ -135,7 +135,7 @@ router.post(
   upload.single("file"),
   validateCreate,
   asyncHandler(async (req, res) => {
-    const v = sendValidation(res, req); if (v) return; // stop si erreurs
+    const v = sendValidation(res, req); if (v) return;
 
     const pool = req.app.get("db");
     try {
@@ -187,7 +187,7 @@ router.put(
   upload.single("file"),
   validateUpdate,
   asyncHandler(async (req, res) => {
-    const v = sendValidation(res, req); if (v) return; // stop si erreurs
+    const v = sendValidation(res, req); if (v) return;
 
     const pool = req.app.get("db");
     const id = Number(req.params.id || 0);
@@ -248,7 +248,7 @@ router.delete(
   writeLimiter,
   validateIdParam,
   asyncHandler(async (req, res) => {
-    const v = sendValidation(res, req); if (v) return; // stop si erreurs
+    const v = sendValidation(res, req); if (v) return;
 
     const pool = req.app.get("db");
     const id = Number(req.params.id);

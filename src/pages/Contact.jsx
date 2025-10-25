@@ -3,22 +3,18 @@
  * -------------------------------------------------
  * - Formulaire avec validations côté client (email / sujet / message + honeypot)
  * - Envoi à l'API (/api/contact, via VITE_API_URL si défini)
- * - UX : états (idle/sending/success/error), reset sur succès
- * - Accessibilité : labels, aria-invalid, aria-describedby, aria-live
- * - UI : dégradé pastel cohérent, focus rings, cartes numéros/sites utiles
- * - Animations : reveal au scroll (.reveal / .in-view) + hover sur cartes
  */
 
 import { useEffect, useState } from "react";
 import family from "../assets/images/family_3.png";
 
-const API = import.meta.env.VITE_API_URL || ""; // proxy Vite en dev si ""
+const API = import.meta.env.VITE_API_URL || "";
 
 export default function Contact() {
   // ------------------------- State formulaire + statut
   const [form, setForm] = useState({ email: "", subject: "", message: "", hp: "" });
   const [errors, setErrors] = useState({});
-  const [status, setStatus] = useState("idle"); // idle | sending | success | error
+  const [status, setStatus] = useState("idle");
   const [serverMsg, setServerMsg] = useState("");
 
   // ------------------------- Animation "reveal" au scroll
@@ -139,11 +135,10 @@ export default function Contact() {
         <div className="grid md:grid-cols-2 gap-10 items-stretch">
           {/* Colonne gauche : formulaire */}
           <form
-            className="reveal js-reveal bg-white rounded-2xl shadow p-6 flex flex-col h-full"
+            className="reveal js-reveal [--delay:60ms] bg-white rounded-2xl shadow p-6 flex flex-col h-full"
             onSubmit={onSubmit}
             noValidate
             aria-labelledby="contact-title"
-            style={{ ["--delay"]: "60ms" }}
           >
             <h3 id="contact-title" className="text-lg font-semibold text-slate-800 mb-4">
               Nous contacter
@@ -249,14 +244,13 @@ export default function Contact() {
           {/* Colonne droite : numéros + sites utiles */}
           <div className="space-y-6">
             {/* Numéros utiles */}
-            <div className="reveal js-reveal bg-white rounded-2xl shadow p-6" style={{ ["--delay"]: "80ms" }}>
+            <div className="reveal js-reveal [--delay:80ms] bg-white rounded-2xl shadow p-6">
               <h3 className="font-semibold mb-4 text-slate-800 text-lg">Numéros utiles</h3>
               <ul className="grid sm:grid-cols-2 gap-3 text-sm">
                 {helpfulNumbers.map((n, i) => (
                   <li
                     key={n.name}
-                    className="card-hover p-3 flex items-center justify-between"
-                    style={{ ["--delay"]: `${i * 50}ms` }}
+                    className={`card-hover p-3 flex items-center justify-between [--delay:${i * 50}ms]`}
                   >
                     <span>{n.name}</span>
                     <a
@@ -272,14 +266,13 @@ export default function Contact() {
             </div>
 
             {/* Sites utiles */}
-            <div className="reveal js-reveal bg-white rounded-2xl shadow p-6" style={{ ["--delay"]: "120ms" }}>
+            <div className="reveal js-reveal [--delay:120ms] bg-white rounded-2xl shadow p-6">
               <h3 className="font-semibold mb-4 text-slate-800 text-lg">Sites utiles</h3>
               <ul className="grid sm:grid-cols-2 gap-3 text-sm">
                 {usefulSites.map((s, i) => (
                   <li
                     key={s.name}
-                    className="card-hover p-3 flex items-center justify-between"
-                    style={{ ["--delay"]: `${i * 50}ms` }}
+                    className={`card-hover p-3 flex items-center justify-between [--delay:${i * 50}ms]`}
                   >
                     <div className="pr-3">
                       <p className="font-medium">{s.name}</p>
@@ -305,5 +298,6 @@ export default function Contact() {
     </section>
   );
 }
+
 
 

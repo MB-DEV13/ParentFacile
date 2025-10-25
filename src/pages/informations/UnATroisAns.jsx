@@ -1,12 +1,8 @@
-// src/pages/informations/UnATroisAns.jsx
 /**
  * Page : Parcours — 1 à 3 ans
  * -------------------------------------------------
  * - Étapes de petite enfance (santé, modes de garde, aides, école)
  * - Actions : lien officiel / local / redirection vers Documents
- * - Animations :
- *    • reveal au scroll (.reveal .js-reveal -> .in-view)
- *    • hover léger sur les cartes
  */
 
 import { useEffect } from "react";
@@ -90,23 +86,29 @@ export default function UnATroisAns() {
   return (
     <section className="py-12 bg-gradient-to-br from-pfBlueLight to-pfPink">
       {/* Raccourcis (pills) */}
-      <div className="reveal js-reveal flex flex-wrap items-center justify-center gap-2 mb-6" style={{ ["--delay"]: "40ms" }}>
-        <Link to="/informations/grossesse" className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition"
-          style={{ borderColor: "#5784BA", color: "#1f2a44" }}>
+      <div className="reveal js-reveal [--delay:40ms] flex flex-wrap items-center justify-center gap-2 mb-6">
+        <Link
+          to="/informations/grossesse"
+          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition border-pfBlue text-pfBlue"
+        >
           Grossesse
         </Link>
-        <Link to="/informations/naissance" className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition"
-          style={{ borderColor: "#5784BA", color: "#1f2a44" }}>
+        <Link
+          to="/informations/naissance"
+          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition border-pfBlue text-pfBlue"
+        >
           Naissance
         </Link>
-        <Link to="/informations/1-3-ans" className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition"
-          style={{ borderColor: "#5784BA", color: "#1f2a44" }}>
+        <Link
+          to="/informations/1-3-ans"
+          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition border-pfBlue text-pfBlue"
+        >
           1 à 3 ans
         </Link>
       </div>
 
       <div className="max-w-5xl mx-auto px-4">
-        <h1 className="reveal js-reveal text-2xl sm:text-3xl font-bold mb-6 text-slate-900" style={{ ["--delay"]: "80ms" }}>
+        <h1 className="reveal js-reveal [--delay:80ms] text-2xl sm:text-3xl font-bold mb-6 text-slate-900">
           Parcours — 1 à 3 ans
         </h1>
 
@@ -121,10 +123,7 @@ export default function UnATroisAns() {
                 {/* Infos principales */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
-                    <span
-                      className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                      style={{ background: "#F4CFDF", color: "#1f2a44" }}
-                    >
+                    <span className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold bg-pfPink text-slate-800">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <h3 className="font-semibold text-slate-900">{s.title}</h3>
@@ -139,14 +138,13 @@ export default function UnATroisAns() {
                 </div>
 
                 {/* Actions */}
-                <div className="mt-3 md:mt-0 md:w-56 shrink-0">
+                <div className="mt-3 md:mt-0 md:w-56 shrink-0 space-y-2">
                   {s.doc?.type === "link" ? (
                     <a
                       href={s.doc.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
-                      style={{ background: "#5784BA", color: "#fff" }}
+                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition bg-pfBlue text-white"
                     >
                       {s.doc.label || "Accéder à la démarche"}
                     </a>
@@ -158,13 +156,14 @@ export default function UnATroisAns() {
                   ) : s.doc?.type === "official" ? (
                     <Link
                       to={`/documents?q=${encodeURIComponent(s.doc.query)}`}
-                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
-                      style={{ background: "#5784BA", color: "#fff" }}
+                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition bg-pfBlue text-white"
                     >
                       Télécharger le document
                     </Link>
                   ) : (
-                    <div className="text-xs text-slate-500 text-center">Aucun document à télécharger</div>
+                    <div className="text-xs text-slate-500 text-center">
+                      Aucun document à télécharger
+                    </div>
                   )}
                 </div>
               </div>
@@ -174,17 +173,19 @@ export default function UnATroisAns() {
 
         {/* Bande CTA */}
         <div
-          className="reveal js-reveal mt-8 rounded-2xl border p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-          style={{ ["--delay"]: `${120 + steps.length * 70}ms`, background: "#F7F6CF" }}
+          className="reveal js-reveal [--delay:calc(120ms_+_70ms_*_var(--count,0))] mt-8 rounded-2xl border p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-pfYellow"
         >
           <div>
-            <h4 className="font-semibold text-slate-900">Besoin d’un certificat ou d’un formulaire ?</h4>
-            <p className="text-sm text-slate-700">Retrouvez tous les documents utiles pour la petite enfance.</p>
+            <h4 className="font-semibold text-slate-900">
+              Besoin d’un certificat ou d’un formulaire ?
+            </h4>
+            <p className="text-sm text-slate-700">
+              Retrouvez tous les documents utiles pour la petite enfance.
+            </p>
           </div>
           <Link
             to="/documents"
-            className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
-            style={{ background: "#5784BA", color: "#fff" }}
+            className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition bg-pfBlue text-white"
           >
             Voir tous les documents
           </Link>
@@ -193,4 +194,3 @@ export default function UnATroisAns() {
     </section>
   );
 }
-

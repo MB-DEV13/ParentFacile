@@ -1,55 +1,43 @@
 // ------------------------------------------------------------
 // ParentFacile – Serveur Express léger (frontend/docs/auth API)
 // ------------------------------------------------------------
-// Objectif : point d’entrée simplifié pour servir les routes publiques,
-// avec sécurité, CORS dynamique, et logs de développement.
-//
-// Ce fichier est utile pour des environnements légers
-// (tests, frontend intégré, preview) sans toute la logique MySQL/Nodemailer.
-// ------------------------------------------------------------
-
 import express from "express";
 import morgan from "morgan";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import path from "node:path";
+import cookieParser from "cookie-parser";
 
 import buildCors from "./middleware/cors.js";
 import docsRouter from "./routes/docs.js";
-import authRouter from "./routes/auth.js";
+import adminAuthRouter from "./routes/adminAuth.js";
 
-// ------------------------------------------------------------
-// CONFIGURATION DE BASE
-// ------------------------------------------------------------
 dotenv.config();
 
 const app = express();
 const PORT = Number(process.env.PORT || 5174);
 
-// ------------------------------------------------------------
-// MIDDLEWARES GLOBAUX
-// ------------------------------------------------------------
+// Si tu es derrière un proxy (Heroku/Render/Nginx) et que tu poses un cookie "secure"
+app.set("trust proxy", 1);
 
-// Sécurité HTTP (en-têtes sécurisés : noSniff, XSS, etc.)
+// Sécurité HTTP (en-têtes)
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
 
-// JSON body parser
+// Parsers
 app.use(express.json({ limit: "256kb" }));
+app.use(cookieParser());
 
-// Logger HTTP (dev friendly)
+// Logs
 app.use(morgan("dev"));
 
-// CORS dynamique (supporte cookies et whitelist depuis .env)
+// CORS (avec credentials si ton front est sur un autre domaine)
 app.use(buildCors(process.env.ALLOWED_ORIGINS));
 
-// ------------------------------------------------------------
-// RESSOURCES STATIQUES
-// ------------------------------------------------------------
-// Sert les PDF publics (ex: ressources documentaires)
+// Fichiers statiques (PDF)
 app.use(
   "/pdfs",
   express.static(path.join(process.cwd(), "public", "pdfs"), {
@@ -58,21 +46,18 @@ app.use(
   })
 );
 
-// ------------------------------------------------------------
-// ROUTES
-// ------------------------------------------------------------
-
 // Routes publiques
 app.use("/api/docs", docsRouter);
-app.use("/api/auth", authRouter);
 
-// Route racine de santé simple
+// ✅ Auth admin (JWT) — MONTE SOUS /api/admin/auth
+app.use("/api/admin/auth", adminAuthRouter);
+
+// Santé
 app.get("/", (_req, res) => res.json({ ok: true, name: "ParentFacile API" }));
 
-// ------------------------------------------------------------
-// DEMARRAGE DU SERVEUR
-// ------------------------------------------------------------
 app.listen(PORT, () => {
   console.log(`🚀 ParentFacile API en écoute sur http://localhost:${PORT}`);
 });
+
+
 

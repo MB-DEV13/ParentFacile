@@ -44,7 +44,7 @@ export default function createDocsRouter(pool, pdfDirAbs) {
     return false;
   }
 
-  const safeFsName = (name) => path.basename(String(name || "")); // évite ../
+  const safeFsName = (name) => path.basename(String(name || ""));
 
   const cleanForHeader = (name) =>
     String(name || "document").replace(/[\\/:*?"<>|]/g, "_").slice(0, 200);

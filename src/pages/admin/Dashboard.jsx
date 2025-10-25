@@ -1,8 +1,10 @@
+// src/pages/admin/Dashboard.jsx
 /**
  * Page : Admin — Dashboard
+ * -------------------------------------------------
  * - Documents + 3 derniers messages via useApi
  * - Refresh après upload/delete/update en incrémentant un compteur
- * - UI/UX inchangée (tri, modale d’édition, toasts…)
+ * - Modale d’édition, toasts, tri inchangés
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -91,7 +93,7 @@ export default function AdminDashboard() {
         doc_key: "",
         file: null,
       });
-      setRefresh((x) => x + 1); // refetch
+      setRefresh((x) => x + 1);
     } catch (e) {
       setErr(e.message || "Erreur ajout document");
     } finally {
@@ -103,7 +105,7 @@ export default function AdminDashboard() {
     if (!confirm("Supprimer ce document ?")) return;
     try {
       await adminDeleteDoc(id);
-      setRefresh((x) => x + 1); // refetch
+      setRefresh((x) => x + 1);
     } catch (e) {
       alert(e.message || "Erreur suppression");
     }
@@ -134,42 +136,64 @@ export default function AdminDashboard() {
     });
   }, [list]);
 
+  // Animation reveal (gardée)
+  useEffect(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const els = document.querySelectorAll(".js-reveal");
+    if (!els.length) return;
+
+    if (prefersReduced) {
+      els.forEach((el) => el.classList.add("in-view"));
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -10% 0px" }
+    );
+
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [loadingDocs, loadingMsgs, sortedDocs.length, lastMsgs.length]);
+
   return (
-    <main
-      className="py-12"
-      style={{
-        background: "linear-gradient(135deg, #9AC8EB 0%, #F4CFDF 100%)",
-      }}
-    >
+    <main className="py-12 min-h-screen bg-gradient-to-br from-pfBlueLight to-pfPink">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div className="reveal js-reveal [--delay:60ms] flex items-center justify-between mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
             Admin – Dashboard
           </h1>
           <button
             onClick={onLogout}
-            className="rounded-xl px-3 py-1.5 text-sm border"
-            style={{ borderColor: "#5784BA", color: "#5784BA" }}
+            className="rounded-xl px-3 py-1.5 text-sm border border-pfBlue text-pfBlue hover:bg-white transition"
           >
             Se déconnecter
           </button>
         </div>
 
         {!!toast && (
-          <div className="mb-4 rounded-lg px-3 py-2 text-sm bg-green-50 text-green-700 border border-green-200">
+          <div className="reveal js-reveal [--delay:100ms] mb-4 rounded-lg px-3 py-2 text-sm bg-green-50 text-green-700 border border-green-200">
             {toast}
           </div>
         )}
 
         <div className="grid md:grid-cols-2 gap-6 items-start">
-          {/* Formulaire (gauche) */}
-          <section className="bg-white rounded-2xl shadow p-6">
+          {/* Formulaire (gauche) — RESTAURÉ */}
+          <section className="reveal js-reveal [--delay:120ms] bg-white rounded-2xl shadow p-6">
             <h2 className="text-lg font-semibold mb-3">Ajouter un PDF</h2>
             <form className="space-y-3" onSubmit={onSubmit}>
               <div>
                 <label className="text-sm font-medium">Titre (label)</label>
                 <input
-                  className="w-full rounded-xl border px-3 py-2 text-sm"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
                   value={form.label}
                   placeholder="Ex: Déclaration de grossesse (CPAM/CAF)"
                   onChange={(e) => {
@@ -184,7 +208,7 @@ export default function AdminDashboard() {
                 <div>
                   <label className="text-sm font-medium">Tag</label>
                   <select
-                    className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
                     value={form.tag}
                     onChange={(e) => setField("tag", e.target.value)}
                   >
@@ -199,11 +223,9 @@ export default function AdminDashboard() {
                   <label className="text-sm font-medium">Ordre</label>
                   <input
                     type="number"
-                    className="w-full rounded-xl border px-3 py-2 text-sm"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
                     value={form.sort_order}
-                    onChange={(e) =>
-                      setField("sort_order", Number(e.target.value))
-                    }
+                    onChange={(e) => setField("sort_order", Number(e.target.value))}
                   />
                 </div>
               </div>
@@ -211,7 +233,7 @@ export default function AdminDashboard() {
               <div>
                 <label className="text-sm font-medium">Clé doc (doc_key)</label>
                 <input
-                  className="w-full rounded-xl border px-3 py-2 text-sm font-mono"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
                   value={form.doc_key}
                   onChange={(e) => setField("doc_key", slugify(e.target.value))}
                   placeholder="ex: declaration-grossesse"
@@ -223,7 +245,7 @@ export default function AdminDashboard() {
                 <input
                   type="file"
                   accept="application/pdf"
-                  className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
                   onChange={(e) => setField("file", e.target.files?.[0] || null)}
                 />
               </div>
@@ -232,7 +254,7 @@ export default function AdminDashboard() {
                 <button
                   type="submit"
                   disabled={sending}
-                  className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-60"
+                  className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-60 shadow hover:brightness-110 transition"
                   style={{ background: "#5784BA", color: "#fff" }}
                 >
                   {sending ? "Envoi…" : "Ajouter"}
@@ -244,9 +266,9 @@ export default function AdminDashboard() {
           </section>
 
           {/* Liste (droite) */}
-          <section className="bg-white rounded-2xl shadow p-6">
+          <section className="reveal js-reveal [--delay:160ms] bg-white rounded-2xl shadow p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold mb-3">Documents</h2>
+              <h2 className="text-lg font-semibold mb-3 text-slate-800">Documents</h2>
               {errDocs && (
                 <span className="text-sm text-red-600">
                   {String(errDocs.message || errDocs)}
@@ -256,15 +278,16 @@ export default function AdminDashboard() {
 
             <div className="max-h-[70vh] overflow-auto pr-1">
               {loadingDocs ? (
-                <p>Chargement…</p>
+                <p className="text-slate-600">Chargement…</p>
               ) : sortedDocs.length === 0 ? (
                 <p className="text-slate-600">Aucun document.</p>
               ) : (
                 <ul className="space-y-3">
-                  {sortedDocs.map((d) => (
+                  {sortedDocs.map((d, i) => (
                     <li
                       key={d.id}
-                      className="rounded-2xl border p-4 shadow-sm hover:shadow-md transition flex flex-col gap-2"
+                      className="reveal js-reveal rounded-2xl border p-4 bg-white shadow-sm"
+                      style={{ ["--delay"]: `${200 + i * 50}ms` }}
                     >
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -280,7 +303,7 @@ export default function AdminDashboard() {
                               target="_blank"
                               rel="noreferrer"
                               className="text-xs underline decoration-slate-400 underline-offset-2 hover:opacity-80"
-                              title="Ouvrir le PDF"
+                              title="Ouvrir le PDF dans un nouvel onglet"
                             >
                               Ouvrir
                             </a>
@@ -291,13 +314,13 @@ export default function AdminDashboard() {
                               {d.label}
                             </h4>
                             <p className="text-xs text-slate-500 truncate">
-                              {d.label} — ordre {d.order ?? d.sort_order ?? 999}
+                              Ordre {d.order ?? d.sort_order ?? 999}
                             </p>
                           </div>
 
                           <button
                             onClick={() => onEdit(d)}
-                            className="h-9 rounded-xl px-3 text-sm font-medium shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                            className="h-9 rounded-xl px-3 text-sm font-medium shrink-0 focus:outline-none focus:ring-2 focus:ring-pfBlue focus:ring-offset-1 shadow hover:brightness-110 transition"
                             style={{ background: "#5784BA", color: "#fff" }}
                           >
                             Modifier
@@ -305,10 +328,10 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      <div className="flex justify-end mt-1">
+                      <div className="flex justify-end mt-3">
                         <button
                           onClick={() => onDelete(d.id)}
-                          className="h-9 rounded-xl px-3 text-sm border hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-1"
+                          className="h-9 rounded-xl px-3 text-sm border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-pfBlue focus:ring-offset-1"
                         >
                           Supprimer
                         </button>
@@ -321,11 +344,11 @@ export default function AdminDashboard() {
           </section>
         </div>
 
-        {/* Derniers messages reçus */}
-        <section className="mt-10 bg-white rounded-2xl shadow p-6">
+        {/* Derniers messages reçus — RESTAURÉ */}
+        <section className="reveal js-reveal [--delay:200ms] mt-10 bg-white rounded-2xl shadow p-6">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-lg">Derniers messages reçus</h3>
-            <Link to="/admin/messages" className="text-sm underline">
+            <h3 className="font-semibold text-lg text-slate-800">Derniers messages reçus</h3>
+            <Link to="/admin/messages" className="text-sm underline text-pfBlue hover:opacity-80">
               Voir tous
             </Link>
           </div>
@@ -337,31 +360,22 @@ export default function AdminDashboard() {
               {String(errMsgs.message || errMsgs)}
             </p>
           ) : (lastMsgs || []).length === 0 ? (
-            <p className="text-sm text-slate-500 mt-3">
-              Aucun message pour l’instant.
-            </p>
+            <p className="text-sm text-slate-500 mt-3">Aucun message pour l’instant.</p>
           ) : (
             <ul className="mt-4 space-y-3">
-              {lastMsgs.map((m) => (
-                <li key={m.id} className="rounded-xl border p-3 bg-slate-50">
+              {lastMsgs.map((m, i) => (
+                <li key={m.id} className="reveal js-reveal rounded-xl border p-3 bg-slate-50" style={{ ["--delay"]: `${240 + i * 60}ms` }}>
                   <div className="flex items-center justify-between">
-                    <div className="font-medium">
-                      {m.subject || "(Sans sujet)"}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {new Date(m.created_at).toLocaleString("fr-FR")}
-                    </div>
+                    <div className="font-medium text-slate-900">{m.subject || "(Sans sujet)"}</div>
+                    <div className="text-xs text-slate-500">{new Date(m.created_at).toLocaleString("fr-FR")}</div>
                   </div>
                   <div className="text-xs text-slate-600 mt-1">
                     De :{" "}
-                    <a
-                      href={`mailto:${m.email}`}
-                      className="font-mono underline hover:opacity-80"
-                    >
+                    <a href={`mailto:${m.email}`} className="font-mono underline text-pfBlue hover:opacity-80 transition">
                       {m.email}
                     </a>
                   </div>
-                  <p className="text-sm mt-2 line-clamp-3">{m.message}</p>
+                  <p className="text-sm mt-2 line-clamp-3 text-slate-700">{m.message}</p>
                 </li>
               ))}
             </ul>
@@ -369,7 +383,6 @@ export default function AdminDashboard() {
         </section>
       </div>
 
-      {/* MODALE EDIT */}
       {editingDoc && (
         <EditDocModal
           doc={editingDoc}
@@ -377,7 +390,7 @@ export default function AdminDashboard() {
           onSaved={async () => {
             setEditingDoc(null);
             setToast("Document modifié avec succès.");
-            setRefresh((x) => x + 1); // refetch
+            setRefresh((x) => x + 1);
             setTimeout(() => setToast(""), 3000);
           }}
         />
@@ -411,7 +424,7 @@ function EditDocModal({ doc, onClose, onSaved }) {
         tag,
         sort_order: Number(sortOrder),
         doc_key: docKey,
-        file, // facultatif
+        file,
       });
       onSaved?.();
     } catch (e) {
@@ -425,8 +438,8 @@ function EditDocModal({ doc, onClose, onSaved }) {
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-lg w-full max-w-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Modifier le document</h3>
-          <button onClick={onClose} className="rounded-lg px-2 py-1 text-sm border">
+          <h3 className="text-lg font-semibold text-slate-800">Modifier le document</h3>
+          <button onClick={onClose} className="rounded-lg px-2 py-1 text-sm border border-slate-300 hover:bg-slate-50">
             Fermer
           </button>
         </div>
@@ -435,7 +448,7 @@ function EditDocModal({ doc, onClose, onSaved }) {
           <div>
             <label className="text-sm font-medium">Titre (label)</label>
             <input
-              className="w-full rounded-xl border px-3 py-2 text-sm"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
@@ -445,7 +458,7 @@ function EditDocModal({ doc, onClose, onSaved }) {
             <div>
               <label className="text-sm font-medium">Tag</label>
               <select
-                className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
               >
@@ -460,7 +473,7 @@ function EditDocModal({ doc, onClose, onSaved }) {
               <label className="text-sm font-medium">Ordre</label>
               <input
                 type="number"
-                className="w-full rounded-xl border px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(Number(e.target.value))}
               />
@@ -470,7 +483,7 @@ function EditDocModal({ doc, onClose, onSaved }) {
           <div>
             <label className="text-sm font-medium">Clé doc (doc_key)</label>
             <input
-              className="w-full rounded-xl border px-3 py-2 text-sm font-mono"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
               value={docKey}
               onChange={(e) => setDocKey(slugify(e.target.value))}
             />
@@ -481,7 +494,7 @@ function EditDocModal({ doc, onClose, onSaved }) {
             <input
               type="file"
               accept="application/pdf"
-              className="w-full rounded-xl border px-3 py-2 text-sm bg-white"
+              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pfBlue"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
             <p className="text-xs text-slate-500 mt-1">
@@ -492,13 +505,13 @@ function EditDocModal({ doc, onClose, onSaved }) {
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="pt-2 flex gap-2 justify-end">
-            <button type="button" onClick={onClose} className="rounded-xl px-3 py-2 text-sm border">
+            <button type="button" onClick={onClose} className="rounded-xl px-3 py-2 text-sm border border-slate-300 hover:bg-slate-50">
               Annuler
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-60"
+              className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-60 shadow hover:brightness-110 transition"
               style={{ background: "#5784BA", color: "#fff" }}
             >
               {saving ? "Enregistrement…" : "Enregistrer"}
@@ -509,4 +522,6 @@ function EditDocModal({ doc, onClose, onSaved }) {
     </div>
   );
 }
+
+
 

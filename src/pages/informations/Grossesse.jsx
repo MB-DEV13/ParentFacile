@@ -1,13 +1,8 @@
-// src/pages/informations/Grossesse.jsx
 /**
  * Page : Parcours — Grossesse
  * -------------------------------------------------
  * - Liste d'étapes (titre, détails, pro à contacter, action)
  * - Liens officiels + redirection vers Documents quand pertinent
- * - UI : pastilles numérotées, cartes douces, CTA final
- * - Animations :
- *    • Reveal au scroll (.reveal .js-reveal -> .in-view via IntersectionObserver)
- *    • Hover léger sur les items (ombre/échelle)
  */
 
 import { useEffect } from "react";
@@ -168,32 +163,29 @@ export default function Grossesse() {
   return (
     <section className="py-12 bg-gradient-to-br from-pfBlueLight to-pfPink">
       {/* Raccourcis (pills) */}
-      <div className="reveal js-reveal flex flex-wrap items-center justify-center gap-2 mb-6" style={{ ["--delay"]: "40ms" }}>
+      <div className="reveal js-reveal [--delay:40ms] flex flex-wrap items-center justify-center gap-2 mb-6">
         <Link
           to="/informations/grossesse"
-          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition"
-          style={{ borderColor: "#5784BA", color: "#1f2a44" }}
+          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition border-pfBlue text-pfBlue"
         >
           Grossesse
         </Link>
         <Link
           to="/informations/naissance"
-          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition"
-          style={{ borderColor: "#5784BA", color: "#1f2a44" }}
+          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition border-pfBlue text-pfBlue"
         >
           Naissance
         </Link>
         <Link
           to="/informations/1-3-ans"
-          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition"
-          style={{ borderColor: "#5784BA", color: "#1f2a44" }}
+          className="rounded-full border px-3 py-1.5 text-sm hover:bg-white transition border-pfBlue text-pfBlue"
         >
           1 à 3 ans
         </Link>
       </div>
 
       <div className="max-w-5xl mx-auto px-4">
-        <h1 className="reveal js-reveal text-2xl sm:text-3xl font-bold mb-6 text-slate-900" style={{ ["--delay"]: "80ms" }}>
+        <h1 className="reveal js-reveal [--delay:80ms] text-2xl sm:text-3xl font-bold mb-6 text-slate-900">
           Parcours — Grossesse (0 à 9 mois)
         </h1>
 
@@ -208,10 +200,7 @@ export default function Grossesse() {
                 {/* Titre + détails */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
-                    <span
-                      className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                      style={{ background: "#9AC8EB" }}
-                    >
+                    <span className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white bg-pfBlueLight">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <h3 className="font-semibold text-slate-900">{s.title}</h3>
@@ -235,8 +224,7 @@ export default function Grossesse() {
                         href={s.doc.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
-                        style={{ background: "#5784BA", color: "#fff" }}
+                        className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition bg-pfBlue text-white"
                       >
                         {s.doc.label || "Accéder au document"}
                       </a>
@@ -244,8 +232,7 @@ export default function Grossesse() {
                       {s.doc.extraDownloadQuery && (
                         <Link
                           to={`/documents?q=${encodeURIComponent(s.doc.extraDownloadQuery)}`}
-                          className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium border"
-                          style={{ borderColor: "#5784BA", color: "#5784BA" }}
+                          className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium border border-pfBlue text-pfBlue hover:bg-white transition"
                         >
                           Télécharger le document
                         </Link>
@@ -264,8 +251,7 @@ export default function Grossesse() {
                           href={s.doc.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
-                          style={{ background: "#5784BA", color: "#fff" }}
+                          className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition bg-pfBlue text-white"
                         >
                           {s.doc.linkLabel || "Modèle en ligne"}
                         </a>
@@ -274,8 +260,7 @@ export default function Grossesse() {
                   ) : s.doc?.type === "official" ? (
                     <Link
                       to={`/documents?q=${encodeURIComponent(s.doc.query)}`}
-                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
-                      style={{ background: "#5784BA", color: "#fff" }}
+                      className="w-full inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition bg-pfBlue text-white"
                       title={`Télécharger : ${s.doc.query}`}
                     >
                       Télécharger le document
@@ -291,8 +276,8 @@ export default function Grossesse() {
 
         {/* Bande CTA */}
         <div
-          className="reveal js-reveal mt-8 rounded-2xl border p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-          style={{ ["--delay"]: `${120 + steps.length * 70}ms`, background: "#F7F6CF" }}
+          className="reveal js-reveal mt-8 rounded-2xl border p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-pfYellow"
+          style={{ ["--delay"]: `${120 + steps.length * 70}ms` }}
         >
           <div>
             <h4 className="font-semibold text-slate-900">Besoin d’un modèle ou d’une attestation ?</h4>
@@ -302,8 +287,7 @@ export default function Grossesse() {
           </div>
           <Link
             to="/documents"
-            className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition"
-            style={{ background: "#5784BA", color: "#fff" }}
+            className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition bg-pfBlue text-white"
           >
             Voir tous les documents
           </Link>
@@ -312,4 +296,3 @@ export default function Grossesse() {
     </section>
   );
 }
-

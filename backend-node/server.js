@@ -1,10 +1,5 @@
-// server.js (ParentFacile)
 // -----------------------------------------------------------------------------
-// Version de base conservée – ajout de commentaires et micro-réorganisation
-// Objectifs :
-// - Ne pas changer le comportement existant
-// - Clarifier chaque bloc par des commentaires courts
-// - Légères sécurisations/robustesses sans nouvelle dépendance
+// ParentFacile – Serveur Node.js Express API
 // -----------------------------------------------------------------------------
 
 import "dotenv/config.js";
@@ -40,17 +35,16 @@ const allowed = (process.env.ALLOWED_ORIGINS || "")
 
 app.use(
   cors({
-    // si aucune origine définie → autorise tout (utile en dev)
     origin: allowed.length ? allowed : true,
-    credentials: true, // nécessaire pour cookie httpOnly côté front
+    credentials: true,
   })
 );
 
 // --------------------------------------------------
 // Parsers
 // --------------------------------------------------
-app.use(express.json()); // JSON body parser (taille par défaut)
-app.use(cookieParser()); // cookies (JWT admin, etc.)
+app.use(express.json());
+app.use(cookieParser());
 
 // --------------------------------------------------
 // FICHIERS PDF (chemin robuste + dossier public)
@@ -59,7 +53,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PDF_DIR = path.join(__dirname, "public", "pdfs");
-fs.mkdirSync(PDF_DIR, { recursive: true }); // s'assure que le dossier existe
+fs.mkdirSync(PDF_DIR, { recursive: true });
 
 if (!fs.existsSync(PDF_DIR)) {
   console.error("[PDF] Dossier introuvable:", PDF_DIR);
@@ -67,7 +61,6 @@ if (!fs.existsSync(PDF_DIR)) {
   console.log("[PDF] Dossier servi depuis:", PDF_DIR);
 }
 
-// Sert les PDF statiques (ex: /pdfs/monfichier.pdf)
 app.use("/pdfs", express.static(PDF_DIR));
 
 // --------------------------------------------------
@@ -82,7 +75,6 @@ export const pool = mysql.createPool({
   connectionLimit: 5,
 });
 
-// Rendre le pool dispo dans les routers via req.app.get("db")
 app.set("db", pool);
 
 // Création idempotente des tables nécessaires
@@ -124,7 +116,7 @@ async function ensureSchema() {
 }
 
 // --------------------------------------------------
-// SMTP / Nodemailer (utilise les variables .env)
+// SMTP / Nodemailer
 // --------------------------------------------------
 const useSsl = Number(process.env.SMTP_PORT || 0) === 465;
 const transporter = nodemailer.createTransport({
@@ -134,7 +126,6 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
-// Vérifie la connexion SMTP au démarrage (log clair mais non bloquant)
 async function verifySmtp() {
   try {
     await transporter.verify();
@@ -145,7 +136,7 @@ async function verifySmtp() {
 }
 
 // --------------------------------------------------
-// Rate limit global (anti-abus simple)
+// Rate limit global
 // --------------------------------------------------
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -156,24 +147,20 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // --------------------------------------------------
-// VALIDATION du formulaire de contact (express-validator)
+// VALIDATION formulaire contact
 // --------------------------------------------------
 const validateContact = [
   body("email").isEmail().withMessage("Email invalide"),
   body("subject").trim().isLength({ min: 2, max: 190 }).withMessage("Sujet invalide"),
   body("message").trim().isLength({ min: 10, max: 5000 }).withMessage("Message invalide"),
-  // Champ honeypot: si rempli → bot
   body("hp").optional().custom((v) => (v ? Promise.reject("bot") : true)),
 ];
 
-// Préflight CORS spécifique au endpoint contact (utile si front en mode strict)
 app.options("/api/contact", cors());
 
 // --------------------------------------------------
 // ROUTES PUBLIQUES
 // --------------------------------------------------
-
-// Healthcheck simple + DB
 app.get("/health", async (_req, res) => {
   try {
     const [rows] = await pool.query("SELECT 1 AS ok");
@@ -183,14 +170,12 @@ app.get("/health", async (_req, res) => {
   }
 });
 
-// Formulaire de contact (public)
 app.post("/api/contact", validateContact, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ ok: false, errors: errors.array() });
 
   const { email, subject, message } = req.body;
 
-  // 1) Persist en DB
   let insertedId = null;
   try {
     const [result] = await pool.execute(
@@ -203,11 +188,10 @@ app.post("/api/contact", validateContact, async (req, res) => {
     return res.status(500).json({ ok: false, message: "Erreur serveur (DB)" });
   }
 
-  // 2) Envoi email
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER, // nom lisible si fourni
-      to: process.env.CONTACT_TO, // destinataire admin
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: process.env.CONTACT_TO,
       subject: `ParentFacile – ${subject}`,
       replyTo: email,
       text: `De: ${email}\n\n${message}`,
@@ -225,13 +209,12 @@ app.post("/api/contact", validateContact, async (req, res) => {
   }
 });
 
-// Documents publics (liste + téléchargement via createDocsRouter)
+// Documents publics
 app.use("/api/docs", createDocsRouter(pool, PDF_DIR));
 
 // --------------------------------------------------
-// ROUTES ADMIN (auth + gestion docs)
+// ROUTES ADMIN (auth + docs + messages)
 // --------------------------------------------------
-// Injection du pool via req.app.set("db") pour les routers admin
 app.use(
   "/api/admin/auth",
   (req, _res, next) => {
@@ -240,6 +223,7 @@ app.use(
   },
   adminAuthRouter
 );
+
 app.use(
   "/api/admin/docs",
   (req, _res, next) => {
@@ -249,7 +233,7 @@ app.use(
   adminDocsRouter
 );
 
-// ✅ messages via la factory (PAS de wrapper)
+// Messages (factory)
 app.use("/api/admin/messages", createAdminMessagesRouter(pool));
 
 // --------------------------------------------------
@@ -268,12 +252,11 @@ app.use((err, req, res, _next) => {
 const port = Number(process.env.PORT || 4000);
 app.listen(port, async () => {
   try {
-    await ensureSchema(); // crée les tables si besoin
-    await ensureSeedAdmin(pool); // seed admin APRÈS ensureSchema
+    await ensureSchema();
+    await ensureSeedAdmin(pool); // ✅ seed admin si nécessaire
   } catch (e) {
     console.error("Erreur ensureSchema/seed:", e?.message || e);
   }
-  await verifySmtp(); // test non bloquant
+  await verifySmtp();
   console.log(`API http://localhost:${port}`);
 });
-
