@@ -1,8 +1,5 @@
-// src/pages/Legal/Privacy.jsx
 /**
  * Page : Politique de confidentialité
- * - Dégradé + reveal identiques aux autres pages
- * - Stagger via --delay
  */
 
 import React, { useEffect } from "react";
@@ -14,14 +11,17 @@ export default function Privacy() {
   const lastUpdate = "septembre 2025";
   const contactPath = "/contact";
 
+  // Animation reveal (IntersectionObserver)
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const els = document.querySelectorAll(".js-reveal");
     if (!els.length) return;
+
     if (prefersReduced) {
       els.forEach((el) => el.classList.add("in-view"));
       return;
     }
+
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
@@ -33,6 +33,7 @@ export default function Privacy() {
       },
       { threshold: 0.08, rootMargin: "0px 0px -10% 0px" }
     );
+
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
@@ -44,7 +45,9 @@ export default function Privacy() {
       style={{ ["--delay"]: delay }}
     >
       <h3 className="text-lg font-semibold text-slate-800 mb-3">{title}</h3>
-      <div className="prose prose-slate max-w-none text-sm leading-relaxed">{children}</div>
+      <div className="prose prose-slate max-w-none text-sm leading-relaxed">
+        {children}
+      </div>
     </section>
   );
 
@@ -172,3 +175,4 @@ export default function Privacy() {
     </main>
   );
 }
+

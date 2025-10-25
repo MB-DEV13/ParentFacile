@@ -1,151 +1,239 @@
 // -----------------------------------------------------------------------------
-// ParentFacile – Auth Admin (JWT) : cookie HttpOnly +/ou Bearer
+// Auth Admin par JWT (compte unique)
+// Endpoints :
+//   POST /api/admin/auth/login
+//   GET  /api/admin/auth/me
+//   POST /api/admin/auth/logout
+// Exporte : authMiddleware, ensureSeedAdmin
 // -----------------------------------------------------------------------------
-// Ce routeur émet un JWT à la connexion et accepte l'auth:
-//  - via cookie HttpOnly (sécurisé contre XSS)
-//  - via header Authorization: Bearer <token>
-// Choix via .env ADMIN_TOKEN_STRATEGY: "cookie" | "bearer" | "both" (defaut both)
-// Durée du token configurable: ADMIN_JWT_EXPIRES_IN (ex: "15m", "7d")
-// -----------------------------------------------------------------------------
-
 import { Router } from "express";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
+import { body, validationResult } from "express-validator";
 import rateLimit from "express-rate-limit";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 const router = Router();
 
-// -----------------------------------------------------------------------------
-// CONFIG .env
-// -----------------------------------------------------------------------------
+// --------- ENV (compat noms .env existants) ---------
+const ADMIN_EMAIL =
+  process.env.ADMIN_EMAIL ||
+  process.env.ADMIN_SEED_EMAIL ||
+  "admin@parentfacile.fr";
+
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ""; // dev-only fallback
+
+const JWT_SECRET =
+  process.env.ADMIN_JWT_SECRET ||
+  process.env.JWT_SECRET ||
+  "change-me-in-prod";
+
+const JWT_EXPIRES =
+  process.env.ADMIN_JWT_EXPIRES_IN ||
+  process.env.JWT_EXPIRES ||
+  "2d";
+
 const COOKIE_NAME = process.env.ADMIN_COOKIE_NAME || "admintoken";
-const JWT_SECRET = process.env.ADMIN_JWT_SECRET || "change-me"; // ⚠️ changer en prod
-const COOKIE_SECURE = String(process.env.ADMIN_COOKIE_SECURE || "false") === "true";
-const COOKIE_DOMAIN = process.env.ADMIN_COOKIE_DOMAIN || undefined; // ex: .parentfacile.fr
-const JWT_EXPIRES_IN = process.env.ADMIN_JWT_EXPIRES_IN || "7d";
-const TOKEN_STRATEGY = (process.env.ADMIN_TOKEN_STRATEGY || "both").toLowerCase();
+const COOKIE_SECURE =
+  String(process.env.ADMIN_COOKIE_SECURE || "").toLowerCase() === "true";
 
-// -----------------------------------------------------------------------------
-// HELPERS
-// -----------------------------------------------------------------------------
+const TOKEN_STRATEGY =
+  (process.env.ADMIN_TOKEN_STRATEGY || "both").toLowerCase(); // cookie | bearer | both
+
+const MOCK_LATENCY_MS = Number(process.env.MOCK_AUTH_LATENCY_MS || 0);
+
+if (!ADMIN_EMAIL) console.warn("[adminAuth] ADMIN_EMAIL manquant.");
+if (!JWT_SECRET) console.warn("[adminAuth] JWT_SECRET manquant.");
+if (!ADMIN_PASSWORD_HASH && !ADMIN_PASSWORD) {
+  console.warn("[adminAuth] Aucun ADMIN_PASSWORD_HASH ni ADMIN_PASSWORD — vérification login limitée.");
+}
+
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: "lax",
+  secure: COOKIE_SECURE,
+  path: "/",
+  maxAge: 1000 * 60 * 60 * 24 * 7,
+};
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const authLimiter = rateLimit({ windowMs: 60 * 1000, max: 60 });
 
-function signAccessToken(payload) {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+function sendValidation(res, req) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({ ok: false, errors: errors.array() });
+    return true;
+  }
+  return false;
+}
+
+function signJwt(payload) {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+}
+
+function readJwtFromReq(req) {
+  // Strategy: cookie | bearer | both
+  if (TOKEN_STRATEGY === "cookie" || TOKEN_STRATEGY === "both") {
+    const cookieToken = req.cookies?.[COOKIE_NAME];
+    if (cookieToken) return cookieToken;
+  }
+  if (TOKEN_STRATEGY === "bearer" || TOKEN_STRATEGY === "both") {
+    const auth = req.headers.authorization || "";
+    if (auth.startsWith("Bearer ")) return auth.slice(7);
+  }
+  return null;
 }
 
 function setAuthCookie(res, token) {
-  // maxAge approx: si nombre de jours, 7d → 7 * 24h; sinon fallback 7j
-  const defaultMs = 7 * 24 * 3600 * 1000;
-  res.cookie(COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: COOKIE_SECURE,
-    path: "/",
-    domain: COOKIE_DOMAIN,
-    maxAge: defaultMs,
-  });
+  res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
 }
 
-function clearAuthCookie(res) {
-  res.clearCookie(COOKIE_NAME, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: COOKIE_SECURE,
-    path: "/",
-    domain: COOKIE_DOMAIN,
-  });
-}
-
+/* ==================== Middleware de protection ==================== */
 export function authMiddleware(req, res, next) {
-  // 1) Header Authorization: Bearer <token>
-  const auth = req.headers.authorization || "";
-  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  // 2) Cookie HttpOnly
-  const cookieToken = req.cookies?.[COOKIE_NAME];
-  const token = bearer || cookieToken;
-  if (!token) return res.status(401).json({ ok: false, message: "Unauthorized" });
+  const raw = readJwtFromReq(req);
+  if (!raw) {
+    return res.status(401).json({ ok: false, message: "Non autorisé (token manquant)" });
+  }
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    req.admin = { id: payload.id, email: payload.email };
+    const decoded = jwt.verify(raw, JWT_SECRET);
+    if (decoded?.role !== "admin") {
+      return res.status(401).json({ ok: false, message: "Non autorisé (rôle invalide)" });
+    }
+    req.user = decoded;
     next();
   } catch {
-    return res.status(401).json({ ok: false, message: "Unauthorized" });
+    return res.status(401).json({ ok: false, message: "Token invalide ou expiré" });
   }
 }
 
-/** Seed initial appelé par server.js après ensureSchema() */
-export async function ensureSeedAdmin(pool) {
-  const email = process.env.ADMIN_SEED_EMAIL;
-  const pass = process.env.ADMIN_SEED_PASSWORD;
-  if (!email || !pass) {
-    console.log("[AdminSeed] Pas de variables ADMIN_SEED_* -> seed ignoré");
-    return;
-  }
-  const [[existing]] = await pool.query("SELECT id FROM admin_users WHERE email = ?", [email]);
-  if (existing) {
-    console.log(`[AdminSeed] Admin déjà présent: ${email}`);
-    return;
-  }
-  const hash = await bcrypt.hash(pass, 12);
-  await pool.execute("INSERT INTO admin_users (email, password_hash) VALUES (?,?)", [email, hash]);
-  console.log(`[AdminSeed] Admin créé: ${email}`);
-}
+/* ==================== Validations ==================== */
+const validateLogin = [
+  body("email").isEmail().withMessage("Email invalide"),
+  body("password").isLength({ min: 1 }).withMessage("Mot de passe requis"),
+];
 
-// Limiteur anti brute-force basique
-const loginLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+/* ==================== Routes ==================== */
 
-// -----------------------------------------------------------------------------
-// ROUTES
-// -----------------------------------------------------------------------------
+// POST /api/admin/auth/login
 router.post(
   "/login",
-  loginLimiter,
+  authLimiter,
+  validateLogin,
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ ok: false, message: "Email/mot de passe requis" });
+    if (sendValidation(res, req)) return;
+    if (MOCK_LATENCY_MS) await sleep(MOCK_LATENCY_MS);
 
-    const pool = req.app.get("db");
-    const [[user]] = await pool.query("SELECT * FROM admin_users WHERE email = ?", [email]);
-    if (!user) return res.status(401).json({ ok: false, message: "Identifiants invalides" });
+    const { email, password } = req.body;
 
-    const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) return res.status(401).json({ ok: false, message: "Identifiants invalides" });
+    if (String(email).toLowerCase() !== String(ADMIN_EMAIL).toLowerCase()) {
+      return res.status(401).json({ ok: false, message: "Identifiants invalides" });
+    }
 
-    const token = signAccessToken({ id: user.id, email: user.email });
+    let isValid = false;
+    if (ADMIN_PASSWORD_HASH) {
+      isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+    } else if (ADMIN_PASSWORD) {
+      isValid = password === ADMIN_PASSWORD; // dev only
+    } else {
+      // fallback ultime: vérifier contre la table admin_users (si seedé)
+      const pool = req.app.get("db");
+      try {
+        const [[row]] = await pool.query("SELECT password_hash FROM admin_users WHERE email = ? LIMIT 1", [ADMIN_EMAIL]);
+        if (row?.password_hash) isValid = await bcrypt.compare(password, row.password_hash);
+      } catch {}
+    }
 
-    // Stratégie d'émission
+    if (!isValid) {
+      return res.status(401).json({ ok: false, message: "Identifiants invalides" });
+    }
+
+    const token = signJwt({ sub: "admin", email: ADMIN_EMAIL, role: "admin" });
+
     if (TOKEN_STRATEGY === "cookie" || TOKEN_STRATEGY === "both") {
       setAuthCookie(res, token);
     }
 
-    // Toujours retourner un payload clair au frontend
-    const resp = { ok: true };
-    if (TOKEN_STRATEGY === "bearer" || TOKEN_STRATEGY === "both") {
-      resp.token = token;
-      resp.token_type = "Bearer";
-      resp.expires_in = JWT_EXPIRES_IN; // indicatif pour le front
-    }
-
-    res.json(resp);
+    return res.json({
+      ok: true,
+      message: "Connexion réussie",
+      user: { id: "admin", email: ADMIN_EMAIL, role: "admin" },
+      token: TOKEN_STRATEGY === "bearer" || TOKEN_STRATEGY === "both" ? token : undefined,
+    });
   })
 );
 
-router.post(
-  "/logout",
-  asyncHandler(async (_req, res) => {
-    if (TOKEN_STRATEGY === "cookie" || TOKEN_STRATEGY === "both") clearAuthCookie(res);
-    res.json({ ok: true });
-  })
-);
-
+// GET /api/admin/auth/me
 router.get(
   "/me",
-  authMiddleware,
+  authLimiter,
   asyncHandler(async (req, res) => {
-    res.json({ ok: true, admin: req.admin });
+    if (MOCK_LATENCY_MS) await sleep(MOCK_LATENCY_MS);
+
+    const raw = readJwtFromReq(req);
+    if (!raw) return res.json({ ok: true, user: null });
+
+    try {
+      jwt.verify(raw, JWT_SECRET);
+      return res.json({ ok: true, user: { id: "admin", email: ADMIN_EMAIL, role: "admin" } });
+    } catch {
+      return res.json({ ok: true, user: null });
+    }
   })
 );
+
+// POST /api/admin/auth/logout
+router.post(
+  "/logout",
+  authLimiter,
+  asyncHandler(async (_req, res) => {
+    if (MOCK_LATENCY_MS) await sleep(MOCK_LATENCY_MS);
+    res.clearCookie(COOKIE_NAME, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: COOKIE_SECURE,
+      path: "/",
+    });
+    return res.json({ ok: true, message: "Déconnecté" });
+  })
+);
+
+/* ==================== Seed admin (export) ==================== */
+/**
+ * Crée un compte admin si aucun n'existe.
+ * Utilise ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD de l'env.
+ * Fallback: ADMIN_EMAIL + ADMIN_PASSWORD (dev).
+ */
+export async function ensureSeedAdmin(pool) {
+  const seedEmail =
+    process.env.ADMIN_SEED_EMAIL || ADMIN_EMAIL;
+
+  const seedPassword =
+    process.env.ADMIN_SEED_PASSWORD || ADMIN_PASSWORD;
+
+  if (!seedEmail || !seedPassword) {
+    console.warn("[seed admin] Email/mot de passe de seed non fournis — ignoré.");
+    return;
+  }
+
+  const [[exists]] = await pool.query(
+    "SELECT id FROM admin_users WHERE email = ? LIMIT 1",
+    [seedEmail]
+  );
+
+  if (exists) {
+    console.log("[seed admin] Déjà présent:", seedEmail);
+    return;
+  }
+
+  const hash = await bcrypt.hash(seedPassword, 10);
+  await pool.execute(
+    "INSERT INTO admin_users (email, password_hash) VALUES (?,?)",
+    [seedEmail, hash]
+  );
+  console.log("[seed admin] Créé:", seedEmail);
+}
 
 export default router;
 

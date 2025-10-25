@@ -1,10 +1,5 @@
-// src/pages/Legal/Conditions.jsx
 /**
  * Page : CGU
- * - Dégradé pastel Tailwind (tokens)
- * - Animations reveal (.reveal .js-reveal -> .in-view)
- * - Stagger via --delay
- * - A11y : <main role="main">, titres sémantiques
  */
 
 import React, { useEffect } from "react";
@@ -12,7 +7,7 @@ import { Link } from "react-router-dom";
 
 export default function Conditions() {
   const siteName = "ParentFacile";
-  const siteUrl = "https://parentfacile.fr"; // ajuste si besoin
+  const siteUrl = "https://parentfacile.fr";
   const lastUpdate = "septembre 2025";
   const contactPath = "/contact";
 
@@ -47,7 +42,9 @@ export default function Conditions() {
       style={{ ["--delay"]: delay }}
     >
       <h3 className="text-lg font-semibold text-slate-800 mb-3">{title}</h3>
-      <div className="prose prose-slate max-w-none text-sm leading-relaxed">{children}</div>
+      <div className="prose prose-slate max-w-none text-sm leading-relaxed">
+        {children}
+      </div>
     </section>
   );
 

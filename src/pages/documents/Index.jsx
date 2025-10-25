@@ -5,10 +5,6 @@
  * - Filtres par tags (Grossesse / Naissance / 1–3 ans)
  * - Tri : groupe > ordre > label
  * - Actions : Aperçu (nouvel onglet) / Téléchargement / ZIP global
- * - Animations :
- *    • Hover des cartes (ombre + léger zoom)
- *    • Révélation progressive au scroll (.reveal / .in-view) via IntersectionObserver
- * - Data : chargée avec useApi(fetchDocuments)
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -19,7 +15,7 @@ import {
   downloadDocument,
   downloadAllZip,
 } from "../../services/api";
-import { normalizeTag, tagColor } from "../../utils/tags";
+import { normalizeTag, tagClass } from "../../utils/tags";
 import family from "../../assets/images/family_2.png";
 
 const TAGS_UI = ["Grossesse", "Naissance", "1–3 ans"];
@@ -162,8 +158,7 @@ export default function DocsIndex() {
           <button
             type="button"
             onClick={downloadAllZip}
-            className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition w-full sm:w-auto"
-            style={{ background: "#5784BA", color: "#fff" }}
+            className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 active:brightness-95 transition w-full sm:w-auto bg-pfBlue text-white"
             title="Télécharger tous les PDF en ZIP"
           >
             Tout télécharger (ZIP)
@@ -249,21 +244,20 @@ export default function DocsIndex() {
             {filtered.map((doc, i) => (
               <article
                 key={doc.id}
-                className="reveal js-reveal rounded-2xl border bg-white p-4 flex flex-col shadow-sm transition-transform duration-200 hover:shadow-md hover:scale-[1.02] will-change-transform"
-                style={{ ["--delay"]: `${i * 60}ms` }}
+                className={`reveal js-reveal [--delay:${i * 60}ms] rounded-2xl border bg-white p-4 flex flex-col shadow-sm transition-transform duration-200 hover:shadow-md hover:scale-[1.02] will-change-transform`}
                 aria-label={`Document ${doc.label}`}
               >
-                <div
-                  className="text-xs font-medium w-fit rounded-md px-2 py-1 mb-2"
-                  style={tagColor(doc.tag)}
-                >
+                {/* Tag badge (via classes utilitaires) */}
+                <div className={`text-xs font-medium w-fit rounded-md px-2 py-1 mb-2 ${tagClass(doc.tag)}`}>
                   {normalizeTag(doc.tag)}
                 </div>
 
+                {/* Titre */}
                 <h3 className="font-semibold leading-snug flex-1 text-slate-800">
                   {doc.label}
                 </h3>
 
+                {/* Actions */}
                 <div className="mt-3 flex items-center gap-2">
                   <a
                     href={doc.public_url}
@@ -305,5 +299,3 @@ export default function DocsIndex() {
     </section>
   );
 }
-
-

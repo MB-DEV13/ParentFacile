@@ -1,16 +1,11 @@
-// src/pages/informations/Index.jsx
 /**
  * Page : Informations (index des parcours)
  * -------------------------------------------------
  * - Bandeau visuel + intro
  * - 3 cartes vers : Grossesse / Naissance / 1–3 ans
- * - Animations :
- *    • reveal au scroll (classe .reveal)
- *    • hover doux via .card-hover
- * - Couleurs : tokens Tailwind v4 (pfPink, pfBlueSoft, …)
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import family from "../../assets/images/family.png";
 
@@ -26,7 +21,7 @@ const Card = ({ to, title, desc }) => (
   <Link
     to={to}
     aria-label={`Ouvrir le parcours ${title}`}
-    className="card-hover p-5 block"
+    className="card-hover p-5 block rounded-2xl bg-white"
   >
     {/* Tag “Parcours” en bleu doux */}
     <div className="text-xs font-medium w-fit rounded-md px-2 py-1 mb-2 bg-pfBlueSoft text-slate-800">
@@ -39,28 +34,39 @@ const Card = ({ to, title, desc }) => (
 );
 
 export default function InfosIndex() {
-  // --- Fix local : si, pour une raison quelconque, l’observer global
-  // n’a pas encore “vu” ces éléments, on force .in-view au montage.
-  const rootRef = useRef(null);
+  // --- Animation "reveal" au scroll
   useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    // micro-délai pour laisser React peindre le DOM
-    const id = requestAnimationFrame(() => {
-      root.querySelectorAll(".reveal:not(.in-view)").forEach((el) => {
-        // si un IO global passera, il n’y a pas de conflit : .in-view est idempotent
-        el.classList.add("in-view");
-      });
-    });
-    return () => cancelAnimationFrame(id);
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const els = document.querySelectorAll(".js-reveal");
+    if (!els.length) return;
+
+    if (prefersReduced) {
+      els.forEach((el) => el.classList.add("in-view"));
+      return;
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -10% 0px" }
+    );
+
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
   }, []);
 
   return (
     // Fond pastel rose cohérent avec la charte
-    <section ref={rootRef} className="py-16 bg-pfPink">
+    <section className="py-16 bg-pfPink">
       <div className="max-w-6xl mx-auto px-4">
         {/* ===== En-tête ===== */}
-        <div className="mb-10 text-center reveal" style={{ "--delay": "60ms" }}>
+        <div className="mb-10 text-center reveal js-reveal [--delay:60ms]">
           <Badge>Notre parcours</Badge>
           <h2 className="text-2xl sm:text-3xl font-bold mt-1 text-slate-900">
             Informations essentielles, étape par étape
@@ -71,10 +77,7 @@ export default function InfosIndex() {
           </p>
 
           {/* Image bandeau sous le titre */}
-          <div
-            className="mb-6 rounded-2xl overflow-hidden shadow-sm reveal"
-            style={{ "--delay": "120ms" }}
-          >
+          <div className="mb-6 rounded-2xl overflow-hidden shadow-sm reveal js-reveal [--delay:120ms]">
             <img
               src={family}
               alt="Famille - documents utiles"
@@ -87,7 +90,7 @@ export default function InfosIndex() {
 
         {/* ===== Grille des parcours ===== */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <div className="reveal" style={{ "--delay": "80ms" }}>
+          <div className="reveal js-reveal [--delay:80ms]">
             <Card
               to="/informations/grossesse"
               title="Grossesse"
@@ -95,7 +98,7 @@ export default function InfosIndex() {
             />
           </div>
 
-          <div className="reveal" style={{ "--delay": "140ms" }}>
+          <div className="reveal js-reveal [--delay:140ms]">
             <Card
               to="/informations/naissance"
               title="Naissance"
@@ -103,7 +106,7 @@ export default function InfosIndex() {
             />
           </div>
 
-          <div className="reveal" style={{ "--delay": "200ms" }}>
+          <div className="reveal js-reveal [--delay:200ms]">
             <Card
               to="/informations/1-3-ans"
               title="1 à 3 ans"
@@ -115,5 +118,3 @@ export default function InfosIndex() {
     </section>
   );
 }
-
-

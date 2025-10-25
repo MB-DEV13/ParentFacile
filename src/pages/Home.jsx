@@ -1,14 +1,9 @@
-// src/pages/Home.jsx
 /**
  * Page : Accueil
  * -------------------------------------------------
- * - Hero en dégradé pastel + CTA
  * - Parcours (mobile = cartes / desktop = timeline)
  * - Bande CTA "Documents" avec bouton ZIP (mobile + desktop)
  * - Derniers documents ajoutés
- * - Animations :
- *    • Hover des cartes (ombre + léger zoom)
- *    • Révélation progressive au scroll (.reveal / .in-view) via IntersectionObserver
  */
 
 import { useEffect, useMemo } from "react";
@@ -19,7 +14,7 @@ import {
   downloadDocument,
   downloadAllZip,
 } from "../services/api";
-import { normalizeTag, tagColor } from "../utils/tags";
+import { normalizeTag, tagClass } from "../utils/tags";
 import hero from "../assets/images/hero-placeholder.png";
 
 export default function Home() {
@@ -32,7 +27,7 @@ export default function Home() {
     return raw.map((d, i) => ({
       ...d,
       tag: normalizeTag(d.tag),
-      _idx: i, // fallback d'ordre
+      _idx: i,
     }));
   }, [docsData]);
 
@@ -47,7 +42,7 @@ export default function Home() {
     return [...docs].sort((a, b) => getDate(b) - getDate(a)).slice(0, 3);
   }, [docs]);
 
-  // --- même anim de révélation au scroll que sur /documents
+  // --- reveal au scroll
   useEffect(() => {
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
@@ -121,15 +116,13 @@ export default function Home() {
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 to="/informations"
-                className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 transition"
-                style={{ background: "#5784BA", color: "#fff" }}
+                className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 transition bg-pfBlue text-white"
               >
                 Voir le parcours
               </Link>
               <Link
                 to="/documents"
-                className="rounded-xl px-4 py-2 text-sm font-medium border hover:bg-white/50 transition"
-                style={{ borderColor: "#5784BA", color: "#5784BA" }}
+                className="rounded-xl px-4 py-2 text-sm font-medium border hover:bg-white/50 transition border-pfBlue text-pfBlue"
               >
                 Télécharger des documents
               </Link>
@@ -173,88 +166,77 @@ export default function Home() {
               <article
                 key={idx}
                 className="reveal js-reveal rounded-2xl border p-4 shadow-sm bg-white transition-transform duration-200 hover:shadow-md hover:scale-[1.02] will-change-transform"
-                style={{ ["--delay"]: `${idx * 60}ms` }}
               >
-                <div className="flex items-center gap-3">
-                  <span className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white bg-pfBlueSoft">
-                    {step.num}
-                  </span>
-                  <h3 className="font-semibold">{step.title}</h3>
-                </div>
+                <div className={`[--delay:${idx * 60}ms]`}>
+                  <div className="flex items-center gap-3">
+                    <span className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white bg-pfBlueSoft">
+                      {step.num}
+                    </span>
+                    <h3 className="font-semibold">{step.title}</h3>
+                  </div>
 
-                <p className="text-sm text-slate-600 mt-2">{step.body}</p>
+                  <p className="text-sm text-slate-600 mt-2">{step.body}</p>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Link
-                    to="/documents"
-                    className="text-xs rounded-lg px-3 py-1.5 border hover:bg-white transition"
-                    style={{ borderColor: "#5784BA", color: "#5784BA" }}
-                  >
-                    Voir les documents
-                  </Link>
-                  <Link
-                    to={`/informations/${step.slug}`}
-                    className="text-xs rounded-lg px-3 py-1.5 bg-pfPink hover:brightness-105 transition"
-                  >
-                    Guide détaillé
-                  </Link>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link
+                      to="/documents"
+                      className="text-xs rounded-lg px-3 py-1.5 border hover:bg-white transition border-pfBlue text-pfBlue"
+                    >
+                      Voir les documents
+                    </Link>
+                    <Link
+                      to={`/informations/${step.slug}`}
+                      className="text-xs rounded-lg px-3 py-1.5 bg-pfPink hover:brightness-105 transition"
+                    >
+                      Guide détaillé
+                    </Link>
+                  </div>
                 </div>
               </article>
             ))}
           </div>
 
-          {/* --- DESKTOP : timeline actuelle --- */}
+          {/* --- DESKTOP : timeline --- */}
           <div className="relative hidden md:block">
-            {/* Trait vertical global */}
             <div className="absolute left-[260px] top-0 bottom-0 w-px bg-slate-200" />
 
-            {/* Grille */}
             <div className="grid md:grid-cols-[240px_40px_minmax(0,1fr)] gap-x-10 gap-y-16">
               {steps.map((step, idx) => (
                 <div className="contents" key={idx}>
                   {/* Colonne 1 */}
-                  <div
-                    className="flex items-start gap-3 pt-[2px] reveal js-reveal"
-                    style={{ ["--delay"]: `${idx * 60}ms` }}
-                  >
-                    <div className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white bg-pfBlueSoft">
-                      {step.num}
+                  <div className="flex items-start gap-3 pt-[2px] reveal js-reveal">
+                    <div className={`[--delay:${idx * 60}ms] flex items-start gap-3`}>
+                      <div className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white bg-pfBlueSoft">
+                        {step.num}
+                      </div>
+                      <div className="font-medium">{step.label}</div>
                     </div>
-                    <div className="font-medium">{step.label}</div>
                   </div>
 
                   {/* Colonne 2 : pastille */}
                   <div className="relative">
-                    <div
-                      className="absolute -left-7.5 top-[0.45rem] h-5 w-5 rounded-full ring-4"
-                      style={{
-                        background: "#9AC8EB",
-                        boxShadow: "0 0 0 4px #E5E7EB inset",
-                      }}
-                    />
+                    <div className="absolute -left-7.5 top-[0.45rem] h-5 w-5 rounded-full ring-4 ring-slate-200 bg-pfBlueLight" />
                   </div>
 
                   {/* Colonne 3 */}
-                  <div
-                    className="reveal js-reveal"
-                    style={{ ["--delay"]: `${idx * 60 + 80}ms` }}
-                  >
-                    <h3 className="text-lg font-semibold">{step.title}</h3>
-                    <p className="text-sm text-slate-600 mt-1">{step.body}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Link
-                        to="/documents"
-                        className="text-xs rounded-lg px-3 py-1.5 border hover:bg-white transition"
-                        style={{ borderColor: "#5784BA", color: "#5784BA" }}
-                      >
-                        Voir les documents
-                      </Link>
-                      <Link
-                        to={`/informations/${step.slug}`}
-                        className="text-xs rounded-lg px-3 py-1.5 bg-pfPink hover:brightness-105 transition"
-                      >
-                        Guide détaillé
-                      </Link>
+                  <div className="reveal js-reveal">
+                    <div className={`[--delay:${idx * 60 + 80}ms]`}>
+                      <h3 className="text-lg font-semibold">{step.title}</h3>
+                      <p className="text-sm text-slate-600 mt-1">{step.body}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Link
+                          to="/documents"
+                          className="text-xs rounded-lg px-3 py-1.5 border hover:bg-white transition border-pfBlue text-pfBlue"
+                        >
+                          Voir les documents
+                        </Link>
+                        <Link
+                          to={`/informations/${step.slug}`}
+                          className="text-xs rounded-lg px-3 py-1.5 bg-pfPink hover:brightness-105 transition"
+                        >
+                          Guide détaillé
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -273,21 +255,16 @@ export default function Home() {
               Classés chronologiquement pour aller à l’essentiel.
             </p>
           </div>
-          <div
-            className="flex gap-3 w-full sm:w-auto reveal js-reveal"
-            style={{ ["--delay"]: "100ms" }}
-          >
+          <div className="flex gap-3 w-full sm:w-auto reveal js-reveal [--delay:100ms]">
             <Link
               to="/documents"
-              className="rounded-xl px-4 py-2 text-sm font-medium border hover:bg-white transition w-full sm:w-auto text-center"
-              style={{ borderColor: "#5784BA", color: "#5784BA" }}
+              className="rounded-xl px-4 py-2 text-sm font-medium border hover:bg-white transition w-full sm:w-auto text-center border-pfBlue text-pfBlue"
             >
               Voir les documents
             </Link>
             <button
               onClick={downloadAllZip}
-              className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 transition w-full sm:w-auto"
-              style={{ background: "#5784BA", color: "#fff" }}
+              className="rounded-xl px-4 py-2 text-sm font-medium shadow hover:brightness-110 transition w-full sm:w-auto bg-pfBlue text-white"
             >
               Tout télécharger (ZIP)
             </button>
@@ -307,12 +284,7 @@ export default function Home() {
             </div>
             <Link
               to="/documents?sort=recent"
-              className="text-sm font-medium rounded-lg px-3 py-2 border hover:bg-white transition reveal js-reveal"
-              style={{
-                borderColor: "#5784BA",
-                color: "#5784BA",
-                ["--delay"]: "80ms",
-              }}
+              className="text-sm font-medium rounded-lg px-3 py-2 border hover:bg-white transition reveal js-reveal border-pfBlue text-pfBlue [--delay:80ms]"
             >
               Tout voir
             </Link>
@@ -321,10 +293,7 @@ export default function Home() {
           {loadingDocs ? (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-32 rounded-2xl bg-slate-100 animate-pulse"
-                />
+                <div key={i} className="h-32 rounded-2xl bg-slate-100 animate-pulse" />
               ))}
             </div>
           ) : recent.length === 0 ? (
@@ -335,49 +304,51 @@ export default function Home() {
                 <article
                   key={doc.id || doc.label}
                   className="reveal js-reveal rounded-2xl border bg-white p-4 flex flex-col shadow-sm transition-transform duration-200 hover:shadow-md hover:scale-[1.02] will-change-transform"
-                  style={{ ["--delay"]: `${i * 60}ms` }}
                 >
-                  <div
-                    className="text-xs font-medium w-fit rounded-md px-2 py-1 mb-2"
-                    style={tagColor(doc.tag)}
-                  >
-                    {doc.tag}
-                  </div>
-
-                  <h4 className="font-semibold leading-snug flex-1">
-                    {doc.label}
-                  </h4>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    {/* Aperçu — ouvert en NOUVEL onglet */}
-                    <a
-                      href={doc.public_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm underline text-pfBlue hover:text-pfBlue/80 transition-colors"
-                      title="Ouvrir l’aperçu PDF"
+                  <div className={`[--delay:${i * 60}ms]`}>
+                    <div
+                      className={`text-xs font-medium w-fit rounded-md px-2 py-1 mb-2 ${tagClass(
+                        doc.tag
+                      )}`}
                     >
-                      Aperçu
-                    </a>
+                      {doc.tag}
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => downloadDocument(doc.id)}
-                      className="ml-auto inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium text-slate-800 bg-pfBlueLight hover:bg-pfBlueLight/80 transition-colors"
-                      title="Télécharger le PDF"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
+                    <h4 className="font-semibold leading-snug flex-1">
+                      {doc.label}
+                    </h4>
+
+                    <div className="mt-3 flex items-center gap-2">
+                      {/* Aperçu */}
+                      <a
+                        href={doc.public_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm underline text-pfBlue hover:text-pfBlue/80 transition-colors"
+                        title="Ouvrir l’aperçu PDF"
                       >
-                        <path d="M12 5v14" />
-                        <path d="M19 12l-7 7-7-7" />
-                      </svg>
-                      PDF
-                    </button>
+                        Aperçu
+                      </a>
+
+                      <button
+                        type="button"
+                        onClick={() => downloadDocument(doc.id)}
+                        className="ml-auto inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium bg-pfBlueLight text-slate-800 hover:bg-pfBlueLight/80 transition-colors"
+                        title="Télécharger le PDF"
+                      >
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M12 5v14" />
+                          <path d="M19 12l-7 7-7-7" />
+                        </svg>
+                        PDF
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -388,5 +359,6 @@ export default function Home() {
     </>
   );
 }
+
 
 
