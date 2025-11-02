@@ -4,7 +4,6 @@ import tailwind from "@tailwindcss/vite";
 
 /**
  * Vite configuration pour ParentFacile
- * \n
  * Points clés :
  * - Lit les variables d'env via `loadEnv` (VITE_*) pour éviter le hard-coding.
  * - Proxy dev pour /api et /pdfs vers le backend Express.
