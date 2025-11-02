@@ -247,16 +247,32 @@ app.use((err, req, res, _next) => {
 });
 
 // --------------------------------------------------
-// DÉMARRAGE
+// DÉMARRAGE (écoute conditionnelle pour Jest / import)
 // --------------------------------------------------
+import { pathToFileURL } from 'node:url';
+
 const port = Number(process.env.PORT || 4000);
-app.listen(port, async () => {
+const isJest = !!process.env.JEST_WORKER_ID || process.env.NODE_ENV === 'test';
+const isMain = import.meta.url === pathToFileURL(process.argv[1]).href;
+
+async function bootstrap() {
   try {
     await ensureSchema();
-    await ensureSeedAdmin(pool); // ✅ seed admin si nécessaire
+    await ensureSeedAdmin(pool);
   } catch (e) {
     console.error("Erreur ensureSchema/seed:", e?.message || e);
   }
   await verifySmtp();
   console.log(`API http://localhost:${port}`);
-});
+}
+
+if (isMain && !isJest) {
+  app.listen(port, () => {
+    // démarrage async
+    bootstrap();
+  });
+}
+
+// ✅ Export pour Supertest/Jest
+export default app;
+
