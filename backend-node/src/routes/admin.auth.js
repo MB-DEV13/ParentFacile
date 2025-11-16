@@ -6,6 +6,7 @@
 //   POST /api/admin/auth/logout
 // Exporte : authMiddleware, ensureSeedAdmin
 // -----------------------------------------------------------------------------
+
 import { Router } from "express";
 import { body, validationResult } from "express-validator";
 import rateLimit from "express-rate-limit";
@@ -14,14 +15,79 @@ import bcrypt from "bcryptjs";
 
 const router = Router();
 
-// --------- ENV (compat noms .env existants) ---------
+/* -------------------------------------------------------------------------- */
+/*                               SWAGGER DOCS                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @openapi
+ * tags:
+ *   - name: Admin Auth
+ *     description: Authentification administrateur (login, session, logout)
+ */
+
+/**
+ * @openapi
+ * /api/admin/auth/login:
+ *   post:
+ *     summary: Connexion administrateur (email + mot de passe)
+ *     tags: [Admin Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: admin@parentfacile.fr
+ *               password:
+ *                 type: string
+ *                 example: Admin1234!
+ *     responses:
+ *       200:
+ *         description: Connexion réussie (cookie HttpOnly créé)
+ *       400:
+ *         description: Données invalides
+ *       401:
+ *         description: Identifiants incorrects
+ */
+
+/**
+ * @openapi
+ * /api/admin/auth/me:
+ *   get:
+ *     summary: Vérifier si l’administrateur est connecté (via cookie JWT)
+ *     tags: [Admin Auth]
+ *     responses:
+ *       200:
+ *         description: Renvoie l'utilisateur admin ou null
+ */
+
+/**
+ * @openapi
+ * /api/admin/auth/logout:
+ *   post:
+ *     summary: Déconnexion administrateur (suppression cookie JWT)
+ *     tags: [Admin Auth]
+ *     responses:
+ *       200:
+ *         description: Déconnecté
+ */
+
+/* -------------------------------------------------------------------------- */
+/*                              CONFIG ENV                                     */
+/* -------------------------------------------------------------------------- */
+
 const ADMIN_EMAIL =
   process.env.ADMIN_EMAIL ||
   process.env.ADMIN_SEED_EMAIL ||
   "admin@parentfacile.fr";
 
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ""; // dev-only fallback
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
 const JWT_SECRET =
   process.env.ADMIN_JWT_SECRET ||
@@ -38,14 +104,14 @@ const COOKIE_SECURE =
   String(process.env.ADMIN_COOKIE_SECURE || "").toLowerCase() === "true";
 
 const TOKEN_STRATEGY =
-  (process.env.ADMIN_TOKEN_STRATEGY || "both").toLowerCase(); // cookie | bearer | both
+  (process.env.ADMIN_TOKEN_STRATEGY || "both").toLowerCase();
 
 const MOCK_LATENCY_MS = Number(process.env.MOCK_AUTH_LATENCY_MS || 0);
 
 if (!ADMIN_EMAIL) console.warn("[adminAuth] ADMIN_EMAIL manquant.");
 if (!JWT_SECRET) console.warn("[adminAuth] JWT_SECRET manquant.");
 if (!ADMIN_PASSWORD_HASH && !ADMIN_PASSWORD) {
-  console.warn("[adminAuth] Aucun ADMIN_PASSWORD_HASH ni ADMIN_PASSWORD — vérification login limitée.");
+  console.warn("[adminAuth] Aucun ADMIN_PASSWORD_HASH ni ADMIN_PASSWORD — fallback DB.");
 }
 
 const COOKIE_OPTS = {
@@ -57,7 +123,8 @@ const COOKIE_OPTS = {
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
 const authLimiter = rateLimit({ windowMs: 60 * 1000, max: 60 });
 
 function sendValidation(res, req) {
@@ -74,7 +141,6 @@ function signJwt(payload) {
 }
 
 function readJwtFromReq(req) {
-  // Strategy: cookie | bearer | both
   if (TOKEN_STRATEGY === "cookie" || TOKEN_STRATEGY === "both") {
     const cookieToken = req.cookies?.[COOKIE_NAME];
     if (cookieToken) return cookieToken;
@@ -90,7 +156,10 @@ function setAuthCookie(res, token) {
   res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
 }
 
-/* ==================== Middleware de protection ==================== */
+/* -------------------------------------------------------------------------- */
+/*                           MIDDLEWARE AUTH                                   */
+/* -------------------------------------------------------------------------- */
+
 export function authMiddleware(req, res, next) {
   const raw = readJwtFromReq(req);
   if (!raw) {
@@ -108,15 +177,17 @@ export function authMiddleware(req, res, next) {
   }
 }
 
-/* ==================== Validations ==================== */
+/* ------------------------------ VALIDATIONS -------------------------------- */
+
 const validateLogin = [
   body("email").isEmail().withMessage("Email invalide"),
   body("password").isLength({ min: 1 }).withMessage("Mot de passe requis"),
 ];
 
-/* ==================== Routes ==================== */
+/* -------------------------------------------------------------------------- */
+/*                                   ROUTES                                   */
+/* -------------------------------------------------------------------------- */
 
-// POST /api/admin/auth/login
 router.post(
   "/login",
   authLimiter,
@@ -132,22 +203,23 @@ router.post(
     }
 
     let isValid = false;
+
     if (ADMIN_PASSWORD_HASH) {
       isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
     } else if (ADMIN_PASSWORD) {
-      isValid = password === ADMIN_PASSWORD; // dev only
+      isValid = password === ADMIN_PASSWORD;
     } else {
-      // fallback ultime: vérifier contre la table admin_users (si seedé)
       const pool = req.app.get("db");
       try {
-        const [[row]] = await pool.query("SELECT password_hash FROM admin_users WHERE email = ? LIMIT 1", [ADMIN_EMAIL]);
+        const [[row]] = await pool.query(
+          "SELECT password_hash FROM admin_users WHERE email = ? LIMIT 1",
+          [ADMIN_EMAIL]
+        );
         if (row?.password_hash) isValid = await bcrypt.compare(password, row.password_hash);
       } catch {}
     }
 
-    if (!isValid) {
-      return res.status(401).json({ ok: false, message: "Identifiants invalides" });
-    }
+    if (!isValid) return res.status(401).json({ ok: false, message: "Identifiants invalides" });
 
     const token = signJwt({ sub: "admin", email: ADMIN_EMAIL, role: "admin" });
 
@@ -159,12 +231,11 @@ router.post(
       ok: true,
       message: "Connexion réussie",
       user: { id: "admin", email: ADMIN_EMAIL, role: "admin" },
-      token: TOKEN_STRATEGY === "bearer" || TOKEN_STRATEGY === "both" ? token : undefined,
+      token: TOKEN_STRATEGY !== "cookie" ? token : undefined,
     });
   })
 );
 
-// GET /api/admin/auth/me
 router.get(
   "/me",
   authLimiter,
@@ -183,34 +254,30 @@ router.get(
   })
 );
 
-// POST /api/admin/auth/logout
 router.post(
   "/logout",
   authLimiter,
   asyncHandler(async (_req, res) => {
     if (MOCK_LATENCY_MS) await sleep(MOCK_LATENCY_MS);
+
     res.clearCookie(COOKIE_NAME, {
       httpOnly: true,
       sameSite: "lax",
       secure: COOKIE_SECURE,
       path: "/",
     });
+
     return res.json({ ok: true, message: "Déconnecté" });
   })
 );
 
-/* ==================== Seed admin (export) ==================== */
-/**
- * Crée un compte admin si aucun n'existe.
- * Utilise ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD de l'env.
- * Fallback: ADMIN_EMAIL + ADMIN_PASSWORD (dev).
- */
-export async function ensureSeedAdmin(pool) {
-  const seedEmail =
-    process.env.ADMIN_SEED_EMAIL || ADMIN_EMAIL;
+/* -------------------------------------------------------------------------- */
+/*                                 SEED ADMIN                                 */
+/* -------------------------------------------------------------------------- */
 
-  const seedPassword =
-    process.env.ADMIN_SEED_PASSWORD || ADMIN_PASSWORD;
+export async function ensureSeedAdmin(pool) {
+  const seedEmail = process.env.ADMIN_SEED_EMAIL || ADMIN_EMAIL;
+  const seedPassword = process.env.ADMIN_SEED_PASSWORD || ADMIN_PASSWORD;
 
   if (!seedEmail || !seedPassword) {
     console.warn("[seed admin] Email/mot de passe de seed non fournis — ignoré.");
@@ -232,8 +299,10 @@ export async function ensureSeedAdmin(pool) {
     "INSERT INTO admin_users (email, password_hash) VALUES (?,?)",
     [seedEmail, hash]
   );
+
   console.log("[seed admin] Créé:", seedEmail);
 }
 
 export default router;
+
 

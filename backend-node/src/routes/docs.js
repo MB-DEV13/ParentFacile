@@ -26,12 +26,107 @@ import { query, param, validationResult } from "express-validator";
 
 const pipe = promisify(pipeline);
 
+/* -------------------------------------------------------------------------- */
+/*                               SWAGGER DOCS                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * @openapi
+ * tags:
+ *   - name: Documents
+ *     description: Endpoints publics permettant l'accès aux documents PDF (liste, preview, téléchargement, ZIP)
+ */
+
+/**
+ * @openapi
+ * /api/docs:
+ *   get:
+ *     summary: Liste paginée des documents PDF
+ *     tags: [Documents]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: tag
+ *         schema: { type: string }
+ *       - in: query
+ *         name: q
+ *         schema: { type: string }
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *           enum: [label, order, created, tag]
+ *       - in: query
+ *         name: dir
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *     responses:
+ *       200:
+ *         description: Liste paginée des documents
+ *       400:
+ *         description: Paramètres invalides
+ */
+
+/**
+ * @openapi
+ * /api/docs/{id}/preview:
+ *   get:
+ *     summary: Prévisualisation du document en inline
+ *     tags: [Documents]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: PDF affiché dans le navigateur
+ *       404:
+ *         description: Document introuvable
+ */
+
+/**
+ * @openapi
+ * /api/docs/{id}/download:
+ *   get:
+ *     summary: Téléchargement du document PDF
+ *     tags: [Documents]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Téléchargement du fichier
+ *       404:
+ *         description: Document introuvable
+ */
+
+/**
+ * @openapi
+ * /api/docs/zip:
+ *   get:
+ *     summary: Télécharger une archive ZIP contenant tous les documents
+ *     tags: [Documents]
+ *     responses:
+ *       200:
+ *         description: Archive ZIP générée
+ *       404:
+ *         description: Aucun document dans la base
+ */
+
 export default function createDocsRouter(pool, pdfDirAbs) {
   const router = Router();
 
-  // ---------------------------------------------------------------------------
-  // HELPERS
-  // ---------------------------------------------------------------------------
+  /* ------------------------------ HELPERS ---------------------------------- */
+
   const asyncHandler = (fn) => (req, res, next) =>
     Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -49,27 +144,23 @@ export default function createDocsRouter(pool, pdfDirAbs) {
   const cleanForHeader = (name) =>
     String(name || "document").replace(/[\\/:*?"<>|]/g, "_").slice(0, 200);
 
-  // Content-Disposition filename RFC 5987 minimaliste (evite accents cassés)
   function contentDispositionFilename(filename) {
     const fallback = filename.replace(/[^\x20-\x7E]/g, "_");
     const encoded = encodeURIComponent(filename);
     return `filename="${fallback}"; filename*=UTF-8''${encoded}`;
   }
 
-  // Ajoute des entêtes cache + last-modified si possible
   function setStaticHeaders(res, stat) {
     res.setHeader("Cache-Control", "public, max-age=3600, must-revalidate");
     if (stat?.mtime) res.setHeader("Last-Modified", stat.mtime.toUTCString());
   }
 
-  // ---------------------------------------------------------------------------
-  // RATE LIMIT – ZIP plus restreint
-  // ---------------------------------------------------------------------------
+  /* ------------------------------ RATE LIMIT ZIP --------------------------- */
+
   const zipLimiter = rateLimit({ windowMs: 60 * 1000, max: 5 });
 
-  // ---------------------------------------------------------------------------
-  // GET /api/docs → liste paginée + filtres (tag, q)
-  // ---------------------------------------------------------------------------
+  /* ------------------------------ ROUTE LISTE ------------------------------ */
+
   router.get(
     "/",
     [
@@ -91,7 +182,6 @@ export default function createDocsRouter(pool, pdfDirAbs) {
       const sort = req.query.sort || "tag";
       const dir = (req.query.dir || "asc").toUpperCase();
 
-      // mapping colonnes autorisées
       const ORDER_COL = {
         label: "label",
         order: "sort_order",
@@ -111,12 +201,10 @@ export default function createDocsRouter(pool, pdfDirAbs) {
 
       const whereSql = WHERE.length ? `WHERE ${WHERE.join(" AND ")}` : "";
 
-      // ordre custom (priorités tag) puis tri demandé
       const orderCustom = `CASE tag WHEN 'Grossesse' THEN 0 WHEN 'Naissance' THEN 1 WHEN '1–3 ans' THEN 2 ELSE 99 END`;
 
       const [[{ total }]] = await pool.query(
-        `SELECT COUNT(*) AS total FROM documents ${whereSql}`,
-        params
+        `SELECT COUNT(*) AS total FROM documents ${whereSql}`, params
       );
 
       const [rows] = await pool.execute(
@@ -124,7 +212,8 @@ export default function createDocsRouter(pool, pdfDirAbs) {
                 file_name, file_size, mime_type, public_url, created_at
          FROM documents
          ${whereSql}
-         ORDER BY ${ORDER_COL === 'tag' ? `${orderCustom}, sort_order, label` : `${ORDER_COL} ${dir}, label ASC`}
+         ORDER BY ${ORDER_COL === 'tag' ? `${orderCustom}, sort_order, label`
+            : `${ORDER_COL} ${dir}, label ASC`}
          LIMIT ? OFFSET ?`,
         [...params, Number(limit), Number(offset)]
       );
@@ -138,9 +227,8 @@ export default function createDocsRouter(pool, pdfDirAbs) {
     })
   );
 
-  // ---------------------------------------------------------------------------
-  // GET /api/docs/:id/preview → inline
-  // ---------------------------------------------------------------------------
+  /* ------------------------------ ROUTE PREVIEW ---------------------------- */
+
   router.get(
     "/:id/preview",
     [param("id").isInt({ min: 1 }).toInt()],
@@ -169,9 +257,8 @@ export default function createDocsRouter(pool, pdfDirAbs) {
     })
   );
 
-  // ---------------------------------------------------------------------------
-  // GET /api/docs/:id/download → attachment
-  // ---------------------------------------------------------------------------
+  /* ------------------------------ ROUTE DOWNLOAD -------------------------- */
+
   router.get(
     "/:id/download",
     [param("id").isInt({ min: 1 }).toInt()],
@@ -200,9 +287,8 @@ export default function createDocsRouter(pool, pdfDirAbs) {
     })
   );
 
-  // ---------------------------------------------------------------------------
-  // GET /api/docs/zip → archive tous les PDF connus en DB et présents sur disque
-  // ---------------------------------------------------------------------------
+  /* ------------------------------ ROUTE ZIP ------------------------------- */
+
   router.get(
     "/zip",
     zipLimiter,
@@ -214,12 +300,10 @@ export default function createDocsRouter(pool, pdfDirAbs) {
 
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", 'attachment; filename="parentfacile-documents.zip"');
-      res.setHeader("Cache-Control", "no-store"); // archive dynamique
+      res.setHeader("Cache-Control", "no-store");
 
       const archive = archiver("zip", { zlib: { level: 9 } });
-      archive.on("error", (err) => {
-        throw err;
-      });
+      archive.on("error", (err) => { throw err });
       archive.pipe(res);
 
       for (const d of rows) {
@@ -238,4 +322,3 @@ export default function createDocsRouter(pool, pdfDirAbs) {
 
   return router;
 }
-
