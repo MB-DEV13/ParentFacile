@@ -12,10 +12,12 @@ import nodemailer from "nodemailer";
 import mysql from "mysql2/promise";
 import path from "node:path";
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import createDocsRouter from "./src/routes/docs.js";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-// --- Admin routers ---
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./src/swagger.js";
+
+import createDocsRouter from "./src/routes/docs.js";
 import adminAuthRouter, { ensureSeedAdmin } from "./src/routes/admin.auth.js";
 import adminDocsRouter from "./src/routes/admin.docs.js";
 import createAdminMessagesRouter from "./src/routes/admin.messages.js";
@@ -26,7 +28,7 @@ import createAdminMessagesRouter from "./src/routes/admin.messages.js";
 const app = express();
 
 // --------------------------------------------------
-// CORS (liste blanche depuis .env ALLOWED_ORIGINS)
+// CORS
 // --------------------------------------------------
 const allowed = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
@@ -47,7 +49,12 @@ app.use(express.json());
 app.use(cookieParser());
 
 // --------------------------------------------------
-// FICHIERS PDF (chemin robuste + dossier public)
+// SWAGGER UI (documentation auto)
+// --------------------------------------------------
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// --------------------------------------------------
+// FICHIERS PDF
 // --------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,16 +62,10 @@ const __dirname = path.dirname(__filename);
 const PDF_DIR = path.join(__dirname, "public", "pdfs");
 fs.mkdirSync(PDF_DIR, { recursive: true });
 
-if (!fs.existsSync(PDF_DIR)) {
-  console.error("[PDF] Dossier introuvable:", PDF_DIR);
-} else {
-  console.log("[PDF] Dossier servi depuis:", PDF_DIR);
-}
-
 app.use("/pdfs", express.static(PDF_DIR));
 
 // --------------------------------------------------
-// BASE DE DONNÉES (MySQL via pool)
+// BASE DE DONNÉES
 // --------------------------------------------------
 export const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
@@ -77,7 +78,6 @@ export const pool = mysql.createPool({
 
 app.set("db", pool);
 
-// Création idempotente des tables nécessaires
 async function ensureSchema() {
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -112,11 +112,10 @@ async function ensureSchema() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  console.log("MySQL OK: tables messages, documents, admin_users prêtes");
 }
 
 // --------------------------------------------------
-// SMTP / Nodemailer
+// SMTP
 // --------------------------------------------------
 const useSsl = Number(process.env.SMTP_PORT || 0) === 465;
 const transporter = nodemailer.createTransport({
@@ -126,33 +125,18 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
-async function verifySmtp() {
-  try {
-    await transporter.verify();
-    console.log("SMTP OK: prêt à envoyer des emails");
-  } catch (err) {
-    console.error("SMTP KO:", err?.message || err);
-  }
-}
-
 // --------------------------------------------------
 // Rate limit global
 // --------------------------------------------------
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(limiter);
+app.use(rateLimit({ windowMs: 60_000, max: 100 }));
 
 // --------------------------------------------------
-// VALIDATION formulaire contact
+// VALIDATION Contact
 // --------------------------------------------------
 const validateContact = [
-  body("email").isEmail().withMessage("Email invalide"),
-  body("subject").trim().isLength({ min: 2, max: 190 }).withMessage("Sujet invalide"),
-  body("message").trim().isLength({ min: 10, max: 5000 }).withMessage("Message invalide"),
+  body("email").isEmail(),
+  body("subject").trim().isLength({ min: 2, max: 190 }),
+  body("message").trim().isLength({ min: 10, max: 5000 }),
   body("hp").optional().custom((v) => (v ? Promise.reject("bot") : true)),
 ];
 
@@ -161,30 +145,87 @@ app.options("/api/contact", cors());
 // --------------------------------------------------
 // ROUTES PUBLIQUES
 // --------------------------------------------------
+
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Vérifier l'état de l'API et de la base de données
+ *     tags:
+ *       - Public
+ *     responses:
+ *       200:
+ *         description: API joignable (+ état DB)
+ */
 app.get("/health", async (_req, res) => {
   try {
     const [rows] = await pool.query("SELECT 1 AS ok");
-    res.json({ ok: true, db: rows?.[0]?.ok === 1, env: process.env.NODE_ENV || "development" });
+    res.json({
+      ok: true,
+      db: rows?.[0]?.ok === 1,
+      env: process.env.NODE_ENV || "development",
+    });
   } catch {
-    res.json({ ok: true, db: false, env: process.env.NODE_ENV || "development" });
+    res.json({
+      ok: true,
+      db: false,
+      env: process.env.NODE_ENV || "development",
+    });
   }
 });
 
+/**
+ * @openapi
+ * /api/contact:
+ *   post:
+ *     summary: Envoyer un message via le formulaire Contact
+ *     tags:
+ *       - Public
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - subject
+ *               - message
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: parent@example.com
+ *               subject:
+ *                 type: string
+ *                 example: Besoin d'information sur un document
+ *               message:
+ *                 type: string
+ *                 example: Bonjour, je voudrais savoir si...
+ *     responses:
+ *       200:
+ *         description: Message enregistré + email envoyé
+ *       400:
+ *         description: Données invalides
+ *       500:
+ *         description: Erreur serveur
+ */
 app.post("/api/contact", validateContact, async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(400).json({ ok: false, errors: errors.array() });
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ ok: false, errors: errors.array() });
+  }
 
   const { email, subject, message } = req.body;
-
   let insertedId = null;
+
   try {
     const [result] = await pool.execute(
       "INSERT INTO messages (email, subject, message) VALUES (?,?,?)",
       [email, subject, message]
     );
     insertedId = result.insertId;
-  } catch (err) {
-    console.error("DB insert error:", err);
+  } catch {
     return res.status(500).json({ ok: false, message: "Erreur serveur (DB)" });
   }
 
@@ -203,41 +244,21 @@ app.post("/api/contact", validateContact, async (req, res) => {
     );
 
     return res.json({ ok: true, id: String(insertedId) });
-  } catch (err) {
-    console.error("Erreur envoi email:", err);
-    return res.status(500).json({ ok: false, message: "Erreur serveur (envoi email)" });
+  } catch {
+    return res.status(500).json({ ok: false, message: "Erreur serveur (email)" });
   }
 });
 
-// Documents publics
+// --------------------------------------------------
+// ROUTES
+// --------------------------------------------------
 app.use("/api/docs", createDocsRouter(pool, PDF_DIR));
-
-// --------------------------------------------------
-// ROUTES ADMIN (auth + docs + messages)
-// --------------------------------------------------
-app.use(
-  "/api/admin/auth",
-  (req, _res, next) => {
-    req.app.set("db", pool);
-    next();
-  },
-  adminAuthRouter
-);
-
-app.use(
-  "/api/admin/docs",
-  (req, _res, next) => {
-    req.app.set("db", pool);
-    next();
-  },
-  adminDocsRouter
-);
-
-// Messages (factory)
+app.use("/api/admin/auth", adminAuthRouter);
+app.use("/api/admin/docs", adminDocsRouter);
 app.use("/api/admin/messages", createAdminMessagesRouter(pool));
 
 // --------------------------------------------------
-// 404 & HANDLER ERREURS
+// 404 & ERRORS
 // --------------------------------------------------
 app.use((req, res) => res.status(404).json({ ok: false, message: "Not found" }));
 
@@ -247,32 +268,22 @@ app.use((err, req, res, _next) => {
 });
 
 // --------------------------------------------------
-// DÉMARRAGE (écoute conditionnelle pour Jest / import)
+// DÉMARRAGE (Jest compatible)
 // --------------------------------------------------
-import { pathToFileURL } from 'node:url';
-
 const port = Number(process.env.PORT || 4000);
-const isJest = !!process.env.JEST_WORKER_ID || process.env.NODE_ENV === 'test';
+const isJest = !!process.env.JEST_WORKER_ID || process.env.NODE_ENV === "test";
 const isMain = import.meta.url === pathToFileURL(process.argv[1]).href;
 
 async function bootstrap() {
-  try {
-    await ensureSchema();
-    await ensureSeedAdmin(pool);
-  } catch (e) {
-    console.error("Erreur ensureSchema/seed:", e?.message || e);
-  }
-  await verifySmtp();
+  await ensureSchema();
+  await ensureSeedAdmin(pool);
   console.log(`API http://localhost:${port}`);
 }
 
 if (isMain && !isJest) {
   app.listen(port, () => {
-    // démarrage async
     bootstrap();
   });
 }
 
-// ✅ Export pour Supertest/Jest
 export default app;
-
