@@ -121,6 +121,12 @@ ADMIN_SEED_PASSWORD=Admin1234!
 
 > 🔐 Pour Gmail : active la **2FA** et crée un **mot de passe d’application** → à mettre dans `SMTP_PASS`.
 
+
+### 4) Documentation API
+**En local (en développement)**
+Disponible lorsque l’API tourne en local :
+http://localhost:4000/api-docs
+
 ---
 
 ## 🗄️ Installation de la base de données (SQL)
