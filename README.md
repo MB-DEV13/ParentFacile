@@ -178,6 +178,10 @@ SOURCE backend-node/SQL/parentfacile_seed.sql;
 ```
 
 > Le compte admin **seed** est créé automatiquement si absent (ADMIN_SEED_EMAIL / ADMIN_SEED_PASSWORD).
+>
+Compte Admin Demo :
+email : admin@parentfacile.fr
+Mit de passe : Admin1234!
 
 ---
 
